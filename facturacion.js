@@ -4,13 +4,13 @@ const LS_INVOICES = 'facturacion_invoices_v1';
 
 let selectedClient = null;
 let selectedProducts = [];
+let editingInvoiceId = null;
+let originalItems = [];
 
-// Helpers
 function load(key){
   try{
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
-  }catch(e){ return []; }
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  }catch{ return []; }
 }
 function save(key, data){
   localStorage.setItem(key, JSON.stringify(data));
@@ -65,7 +65,16 @@ function renderProducts(filter=""){
           alert(`⚠️ El producto "${p.name}" no tiene stock disponible.`);
           return;
         }
-        selectedProducts.push({...p, qty:1});
+        const existing = selectedProducts.find(sp=>sp.code===p.code);
+        if(existing){
+          if(existing.qty+1 > p.stock){
+            alert(`⚠️ Stock insuficiente para ${p.name}. Máximo ${p.stock}`);
+            return;
+          }
+          existing.qty++;
+        }else{
+          selectedProducts.push({...p, qty:1});
+        }
         updateProductList();
         modalProducts.classList.add('hidden');
       };
@@ -117,11 +126,9 @@ document.querySelectorAll('input[name="pago"]').forEach(radio=>{
 // --- GENERAR Y RECALCULAR CUOTAS ---
 function recalcularCuotas(factura){
   if(factura.pago !== "credito" || !factura.plan) return factura;
-
   const cuotas = factura.plan==="semanal" ? 4 : 2;
   const monto = Math.ceil(factura.total / cuotas);
   const hoy = new Date();
-
   factura.pagos = [];
   for(let i=1;i<=cuotas;i++){
     const fecha = new Date(hoy);
@@ -142,7 +149,6 @@ document.getElementById('facturaForm').onsubmit = e => {
   if(!selectedClient){ alert("Seleccione un cliente"); return; }
   if(selectedProducts.length===0){ alert("Agregue al menos un producto"); return; }
 
-  // 🔹 Verificar stock antes de guardar
   let productos = load(LS_PRODUCTS);
   for(const sp of selectedProducts){
     const inv = productos.find(p => p.code === sp.code);
@@ -180,7 +186,6 @@ document.getElementById('facturaForm').onsubmit = e => {
   invoices.push(factura);
   save(LS_INVOICES, invoices);
 
-  // 🔹 Rebajar stock del inventario
   factura.productos.forEach(fp => {
     const idx = productos.findIndex(p => p.code === fp.code);
     if(idx >= 0){
@@ -190,6 +195,48 @@ document.getElementById('facturaForm').onsubmit = e => {
   });
   save(LS_PRODUCTS, productos);
 
+  imprimirFacturaPDF(factura); // imprimir al guardar
+
   alert("Factura guardada correctamente ✅");
-  location.href = "index.html"; // volver al inicio
+  location.href = "index.html"; 
 };
+
+// --- IMPRIMIR FACTURA EN PDF (ESTILO TICKET) ---
+function imprimirFacturaPDF(factura){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:"portrait",unit:"pt",format:[220,600]});
+  let y=20;
+  doc.setFont("courier","normal");
+  doc.setFontSize(12);
+  doc.text("Cristo Felix",110,y,{align:"center"}); y+=16;
+  doc.setFontSize(10);
+  doc.text("San de arroz y aceite y mas",110,y,{align:"center"}); y+=14;
+  doc.text("Pagos Semanal y Quincenal",110,y,{align:"center"}); y+=14;
+  doc.text("Tel: 829-444-1880",110,y,{align:"center"}); y+=20;
+  doc.line(10,y,210,y); y+=14;
+
+  doc.text(`Factura: ${factura.id}`,110,y,{align:"center"}); y+=12;
+  doc.text(`Cliente: ${factura.cliente.name}`,110,y,{align:"center"}); y+=14;
+
+  factura.productos.forEach(p=>{
+    doc.text(`${p.qty} x ${p.name} $${(p.qty*p.price).toFixed(2)}`,110,y,{align:"center"});
+    y+=12;
+  });
+  y+=6; doc.line(10,y,210,y); y+=14;
+  doc.setFontSize(12);
+  doc.text(`TOTAL: $${factura.total.toFixed(2)}`,110,y,{align:"center"}); y+=18;
+
+  if(factura.pago==="credito" && factura.pagos){
+    doc.setFontSize(10);
+    doc.text("PLAN DE PAGOS:",110,y,{align:"center"}); y+=14;
+    factura.pagos.forEach((p,i)=>{
+      doc.text(`${i+1}. ${p.fecha} $${p.monto}`,110,y,{align:"center"});
+      y+=12;
+    });
+    y+=10;
+  }
+  doc.setFontSize(10);
+  doc.text("Gracias por elegirnos",110,y,{align:"center"});
+  doc.autoPrint();
+  doc.output("dataurlnewwindow");
+}

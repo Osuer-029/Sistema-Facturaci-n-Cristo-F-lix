@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <title>Facturación</title>
   <link rel="stylesheet" href="facturacion.css" />
   <!-- Iconos de Lucide -->
@@ -31,20 +32,28 @@
       </section>
 
       <!-- Forma de Pago -->
-      <section class="card">
-        <h2>Forma de Pago</h2>
-        <label><input type="radio" name="pago" value="efectivo" checked> Efectivo</label>
-        <label><input type="radio" name="pago" value="credito"> Crédito</label>
+      <!-- Forma de Pago -->
+<section class="card">
+  <h2>Forma de Pago</h2>
+  <label><input type="radio" name="pago" value="efectivo" checked> Efectivo</label>
+  <label><input type="radio" name="pago" value="credito"> Crédito</label>
 
-        <!-- Plan de pagos (solo crédito) -->
-        <div id="planPagosBox" style="display:none; margin-top:10px;">
-          <p><b>Plan de pagos:</b></p>
-          <label><input type="radio" name="plan" value="semanal" checked> Semanal</label>
-          <label><input type="radio" name="plan" value="quincenal"> Quincenal</label>
-        </div>
-      </section>
+  <!-- Plan de pagos (solo crédito) -->
+  <div id="planPagosBox" style="display:none; margin-top:10px;">
+    <p><b>Plan de pagos:</b></p>
+    <label><input type="radio" name="plan" value="semanal" checked> Semanal</label>
+    <label><input type="radio" name="plan" value="quincenal"> Quincenal</label>
+  </div>
 
-      <button type="submit" class="btn">Guardar Factura</button>
+  <!-- 🔹 Botones en fila -->
+  <!-- 🔹 Botones alineados a la derecha -->
+<div class="row" style="margin-top:15px; display:flex; justify-content:flex-end; gap:10px;">
+  <button type="submit" class="btn success">Guardar Factura</button>
+  <button type="button" class="btn" id="resetForm">Limpiar</button>
+</div>
+
+</section>
+
     </form>
   </main>
 
@@ -68,12 +77,12 @@
     </div>
   </div>
 
-    <!-- Footer de navegación -->
+  <!-- Footer de navegación -->
   <footer class="navbar">
     <a href="index.html" class="nav-item"><i data-lucide="home"></i><span>Inicio</span></a>
     <a href="inventario.html" class="nav-item"><i data-lucide="package"></i><span>Inventario</span></a>
     <a href="clientes.html" class="nav-item"><i data-lucide="users"></i><span>Clientes</span></a>
-    <a href="facturacion.html" class="nav-item"><i data-lucide="file-text"></i><span>Facturación</span></a>
+    <a href="facturacion.html" class="nav-item active"><i data-lucide="file-text"></i><span>Facturación</span></a>
     <a href="cuentas.html" class="nav-item"><i data-lucide="credit-card"></i><span>Cuentas</span></a>
     <a href="historial.html" class="nav-item"><i data-lucide="archive"></i><span>Historial</span></a>
   </footer>
@@ -81,7 +90,6 @@
   <script>
     lucide.createIcons(); // activar iconos en todas las páginas
   </script>
-
 
   <script src="facturacion.js"></script>
 </body>
