@@ -1,0 +1,75 @@
+:root{
+  --bg:#f7f8fb;
+  --card:#fff;
+  --accent:#0ea5e9;
+  --danger:#ef4444;
+  --muted:#6b7280;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:#0f172a}
+.topbar{
+  display:flex;gap:12px;align-items:center;padding:12px;background:linear-gradient(90deg,var(--accent),#4f46e5);color:white;
+}
+.topbar .back{color:white;text-decoration:none;font-size:20px}
+.container{padding:14px;display:grid;gap:12px}
+.card{background:var(--card);padding:12px;border-radius:12px;box-shadow:0 2px 6px rgba(2,6,23,0.06)}
+.form label{display:block;margin-bottom:8px;font-size:13px}
+.form input,.form textarea,#search,#filterStock{
+  width:100%;padding:10px;border-radius:8px;border:1px solid #e6e9ef;margin-top:6px;font-size:14px;
+}
+.row{display:flex;gap:8px;align-items:center}
+.btn{padding:10px 12px;border-radius:10px;border:0;cursor:pointer}
+.btn.primary{background:var(--accent);color:white;font-weight:700}
+.btn.ghost{background:#f3f4f6;border:1px solid #e6e9ef}
+.product-item{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px;border-radius:10px;border:1px dashed #eef2ff;margin-bottom:8px}
+.product-meta{flex:1}
+.prod-name{font-weight:700;margin-bottom:6px}
+.prod-code{font-size:12px;color:var(--muted)}
+.prod-stock{font-size:13px;margin-top:6px}
+.actions{display:flex;gap:6px}
+.action-btn{padding:8px 10px;border-radius:8px;border:0;cursor:pointer;font-size:13px}
+.action-edit{background:#fde68a}
+.action-delete{background:var(--danger);color:white}
+.action-sell{background:#bbf7d0}
+@media(min-width:700px){.container{max-width:900px;margin:18px auto}}
+
+
+
+/* Footer de navegación */
+.navbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0.4rem 0;
+  z-index: 1000;
+}
+
+.nav-item {
+  text-align: center;
+  font-size: 0.7rem;
+  color: #374151;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 1;
+  padding: 0.3rem 0;
+}
+
+.nav-item i {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2px;
+}
+
+.nav-item.active, 
+.nav-item:hover {
+  color: var(--primary);
+}

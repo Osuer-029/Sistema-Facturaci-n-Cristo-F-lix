@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Inventario — Sistema Facturación</title>
+  <link rel="stylesheet" href="inventario.css" />
+  <!-- Iconos de Lucide -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="index.html">←</a>
+    <h1>Inventario</h1>
+  </header>
+
+  <main class="container">
+    <form id="productForm" class="card form">
+      <h2 id="formTitle">Agregar producto</h2>
+
+      <label>Nombre <input id="name" required maxlength="80" placeholder="Ej: Papel A4"></label>
+      <label>Costo (costo de adquisición) <input id="cost" type="number" min="0" step="0.01" required></label>
+      <label>Precio de venta <input id="price" type="number" min="0" step="0.01" required></label>
+      <label>Stock inicial <input id="stock" type="number" min="0" step="1" value="0" required></label>
+      <label>Descripción (opcional) <textarea id="description" rows="2" maxlength="300" placeholder="Detalles"></textarea></label>
+
+      <div class="row">
+        <button type="submit" class="btn primary">Guardar</button>
+        <button type="button" id="cancelEdit" class="btn ghost" style="display:none">Cancelar</button>
+      </div>
+    </form>
+
+    <section class="card search">
+      <div class="row">
+        <input id="search" placeholder="Buscar por nombre o código..." />
+        <select id="filterStock">
+          <option value="all">Todos</option>
+          <option value="low">Stock baja (&lt;=5)</option>
+          <option value="out">Sin stock</option>
+        </select>
+      </div>
+    </section>
+
+    <section id="list" class="card product-list">
+      <!-- lista de productos dinámica -->
+    </section>
+  </main>
+
+    <!-- Footer de navegación -->
+  <footer class="navbar">
+    <a href="index.html" class="nav-item"><i data-lucide="home"></i><span>Inicio</span></a>
+    <a href="inventario.html" class="nav-item"><i data-lucide="package"></i><span>Inventario</span></a>
+    <a href="clientes.html" class="nav-item"><i data-lucide="users"></i><span>Clientes</span></a>
+    <a href="facturacion.html" class="nav-item"><i data-lucide="file-text"></i><span>Facturación</span></a>
+    <a href="cuentas.html" class="nav-item"><i data-lucide="credit-card"></i><span>Cuentas</span></a>
+    <a href="historial.html" class="nav-item"><i data-lucide="archive"></i><span>Historial</span></a>
+  </footer>
+
+  <script>
+    lucide.createIcons(); // activar iconos en todas las páginas
+  </script>
+
+
+  <script src="inventario.js"></script>
+</body>
+</html>

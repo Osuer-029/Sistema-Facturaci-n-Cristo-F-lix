@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cuentas por Cobrar</title>
+  <link rel="stylesheet" href="facturacion.css">
+  <!-- Iconos de Lucide -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Cuentas por Cobrar</h1>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Buscar</h2>
+      <input type="text" id="searchCuentas" placeholder="Buscar por cliente o factura...">
+    </section>
+
+    <section class="card">
+      <h2>Facturas Pendientes</h2>
+      <ul id="listaPendientes"></ul>
+    </section>
+  </main>
+
+  <!-- Modal detalle factura -->
+  <div id="modalFactura" class="modal hidden">
+    <div class="modal-content">
+      <h3>Detalle de Factura</h3>
+      <div id="detalleFactura"></div>
+      <button class="btn" id="btnAgregarProducto">Agregar Producto</button>
+      <h4>Pagos</h4>
+      <ul id="listaPagos"></ul>
+      <button class="btn close" id="cerrarFactura">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- Modal productos (para agregar más a factura) -->
+  <div id="modalProducts" class="modal hidden">
+    <div class="modal-content">
+      <h3>Seleccionar Producto</h3>
+      <input type="text" id="searchProduct" placeholder="Buscar producto...">
+      <ul id="listProducts"></ul>
+      <button class="btn close" id="closeProducts">Cerrar</button>
+    </div>
+  </div>
+
+    <!-- Footer de navegación -->
+  <footer class="navbar">
+    <a href="index.html" class="nav-item"><i data-lucide="home"></i><span>Inicio</span></a>
+    <a href="inventario.html" class="nav-item"><i data-lucide="package"></i><span>Inventario</span></a>
+    <a href="clientes.html" class="nav-item"><i data-lucide="users"></i><span>Clientes</span></a>
+    <a href="facturacion.html" class="nav-item"><i data-lucide="file-text"></i><span>Facturación</span></a>
+    <a href="cuentas.html" class="nav-item"><i data-lucide="credit-card"></i><span>Cuentas</span></a>
+    <a href="historial.html" class="nav-item"><i data-lucide="archive"></i><span>Historial</span></a>
+  </footer>
+
+  <script>
+    lucide.createIcons(); // activar iconos en todas las páginas
+  </script>
+
+
+  <script src="cuentas.js"></script>
+</body>
+</html>

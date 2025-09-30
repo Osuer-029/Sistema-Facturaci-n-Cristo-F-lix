@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Clientes — Sistema Facturación</title>
+  <link rel="stylesheet" href="clientes.css" />
+  <!-- Iconos de Lucide -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="index.html">←</a>
+    <h1>Clientes</h1>
+  </header>
+
+  <main class="container">
+    <form id="clientForm" class="card form">
+      <h2 id="formTitle">Agregar cliente</h2>
+
+      <label>Nombre <input id="cname" required maxlength="80" placeholder="Ej: Juan Pérez"></label>
+      <label>Teléfono <input id="cphone" required maxlength="20" placeholder="+18091234567"></label>
+      <label>Dirección <input id="caddress" maxlength="150" placeholder="Ej: Calle Duarte #12"></label>
+      <label>Ubicación (Google Maps) <input id="clocation" maxlength="300" placeholder="Pega aquí el link de Maps"></label>
+
+      <div class="row">
+        <button type="submit" class="btn primary">Guardar</button>
+        <button type="button" id="cancelEdit" class="btn ghost" style="display:none">Cancelar</button>
+      </div>
+    </form>
+
+    <section class="card search">
+      <div class="row">
+        <input id="search" placeholder="Buscar por nombre o código..." />
+      </div>
+    </section>
+
+    <section id="list" class="card client-list">
+      <!-- lista de clientes dinámica -->
+    </section>
+  </main>
+
+    <!-- Footer de navegación -->
+  <footer class="navbar">
+    <a href="index.html" class="nav-item"><i data-lucide="home"></i><span>Inicio</span></a>
+    <a href="inventario.html" class="nav-item"><i data-lucide="package"></i><span>Inventario</span></a>
+    <a href="clientes.html" class="nav-item"><i data-lucide="users"></i><span>Clientes</span></a>
+    <a href="facturacion.html" class="nav-item"><i data-lucide="file-text"></i><span>Facturación</span></a>
+    <a href="cuentas.html" class="nav-item"><i data-lucide="credit-card"></i><span>Cuentas</span></a>
+    <a href="historial.html" class="nav-item"><i data-lucide="archive"></i><span>Historial</span></a>
+  </footer>
+
+  <script>
+    lucide.createIcons(); // activar iconos en todas las páginas
+  </script>
+
+
+  <script src="clientes.js"></script>
+</body>
+</html>
