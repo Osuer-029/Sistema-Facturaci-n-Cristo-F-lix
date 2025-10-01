@@ -246,5 +246,6 @@ function imprimirFacturaPDF(factura){
   doc.setFontSize(10);
   doc.text("Gracias por elegirnos",110,y,{align:"center"});
   doc.autoPrint();
-  doc.output("dataurlnewwindow");
+  doc.save(`Factura_${factura.id}.pdf`);
+
 }
