@@ -8,6 +8,7 @@ const lista = document.getElementById('listaPendientes');
 const searchInput = document.getElementById('searchCuentas');
 
 let facturaActual = null;
+let productoPendiente = null;
 
 // Render facturas pendientes
 function renderPendientes(filtro=""){
@@ -46,7 +47,6 @@ window.abrirFactura = (id)=>{
   detalle.innerHTML = `
     <p><b>Cliente:</b> ${facturaActual.cliente.name}</p>
     <p><b>Total:</b> $${facturaActual.total.toFixed(2)}</p>
-    <p><b>Plan:</b> ${facturaActual.plan || "No definido"}</p>
   `;
 
   renderPagos();
@@ -58,25 +58,15 @@ document.getElementById('cerrarFactura').onclick = ()=>{
   facturaActual=null;
 };
 
-// Render pagos de la factura
+// Render pagos
 function renderPagos(){
   const ul = document.getElementById('listaPagos');
   if(!facturaActual || !facturaActual.pagos){ ul.innerHTML="Sin pagos programados"; return; }
 
-  // revisar moras por vencimiento
-  facturaActual.pagos.forEach(p=>{
-    const hoy = new Date();
-    const fechaPago = new Date(p.fecha);
-    if(!p.pagado && fechaPago < hoy){
-      p.mora = 300;
-    }
-  });
-
   ul.innerHTML = facturaActual.pagos.map((p,i)=>`
     <li>
-      <input type="date" value="${p.fecha}" onchange="editarFecha(${i}, this.value)">
-      <input type="number" value="${p.monto}" style="width:80px" onchange="editarMonto(${i}, this.value)">
-      ${p.pagado ? "✅ Pagado" : ""}
+      ${new Date(p.fecha).toLocaleDateString()} - $${p.monto} 
+      ${p.pagado ? "✅ Pagado" : "⏳ Pendiente"} 
       ${p.mora>0 ? `<span style="color:red">+ Mora $${p.mora}</span>`:""}
       ${!p.pagado ? `
         <button onclick="marcarPago(${i})">Pagar</button>
@@ -88,26 +78,14 @@ function renderPagos(){
   saveFactura();
 }
 
-// Marcar un pago
+// Marcar pago
 window.marcarPago = (i)=>{
   facturaActual.pagos[i].pagado=true;
   saveFactura();
   renderPagos();
 };
 
-// Editar fecha
-window.editarFecha = (i, nuevaFecha)=>{
-  facturaActual.pagos[i].fecha = nuevaFecha;
-  saveFactura();
-};
-
-// Editar monto
-window.editarMonto = (i, nuevoMonto)=>{
-  facturaActual.pagos[i].monto = parseFloat(nuevoMonto) || 0;
-  saveFactura();
-};
-
-// Agregar mora manualmente
+// Agregar mora
 window.agregarMora = (i)=>{
   facturaActual.pagos[i].mora += 300;
   saveFactura();
@@ -132,19 +110,96 @@ function renderProducts(filter=""){
       const li=document.createElement('li');
       li.textContent=`${p.code} - ${p.name} ($${p.price})`;
       li.onclick=()=>{
-        facturaActual.productos.push({...p, qty:1});
-        facturaActual.total+=p.price;
-        // recalcular cuotas
-        facturaActual = recalcularCuotas(facturaActual);
-        saveFactura();
-        alert("Producto agregado a factura ✅");
+        productoPendiente = p;
+        document.getElementById('productoNuevo').textContent = `${p.name} ($${p.price})`;
         modalProducts.classList.add('hidden');
-        abrirFactura(facturaActual.id);
+        document.getElementById('modalOpciones').classList.remove('hidden');
       };
       list.appendChild(li);
     });
 }
 document.getElementById('searchProduct').addEventListener('input', e=>renderProducts(e.target.value));
+
+// Modal opciones
+const modalOpciones = document.getElementById('modalOpciones');
+document.getElementById('cerrarOpciones').onclick = ()=> modalOpciones.classList.add('hidden');
+
+// Opción A: sumar al saldo existente
+document.getElementById('opcionSumar').onclick = ()=>{
+  if(!productoPendiente) return;
+  facturaActual.productos.push({...productoPendiente, qty:1});
+  facturaActual.total += productoPendiente.price;
+
+  if(facturaActual.pagos && facturaActual.pagos.length>0){
+    const extra = productoPendiente.price / facturaActual.pagos.length;
+    facturaActual.pagos.forEach(pg=>{
+      pg.monto = (parseFloat(pg.monto) + extra).toFixed(2);
+    });
+  }
+
+  saveFactura();
+  alert("Producto agregado y sumado al saldo ✅");
+  modalOpciones.classList.add('hidden');
+  abrirFactura(facturaActual.id);
+};
+
+// Opción B: nueva fecha de pago con calendario
+document.getElementById('opcionNuevaFecha').onclick = ()=>{
+  document.getElementById('calendarBox').classList.remove('hidden');
+
+  flatpickr("#fechaFlatpickr", {
+    dateFormat: "Y-m-d",
+    minDate: "today",
+    defaultDate: new Date(),
+    onChange: (selectedDates) => {
+      const fecha = selectedDates[0];
+      if(!productoPendiente || !fecha) return;
+
+      facturaActual.productos.push({...productoPendiente, qty:1});
+      facturaActual.total += productoPendiente.price;
+      facturaActual.pagos.push({
+        fecha: fecha.toISOString().split("T")[0],
+        monto: productoPendiente.price,
+        pagado: false,
+        mora: 0
+      });
+
+      saveFactura();
+      alert("Producto agregado con nueva fecha de pago ✅");
+      document.getElementById('calendarBox').classList.add('hidden');
+      modalOpciones.classList.add('hidden');
+      abrirFactura(facturaActual.id);
+    }
+  });
+};
+
+// Eliminar factura solo si está pagada
+document.getElementById('btnEliminarFactura').onclick = ()=>{
+  if(!facturaActual) return;
+
+  let pendiente = 0;
+  if(facturaActual.pagos && facturaActual.pagos.length > 0){
+    pendiente = facturaActual.pagos
+      .filter(p=>!p.pagado)
+      .reduce((sum,p)=> sum + parseFloat(p.monto) + parseFloat(p.mora||0), 0);
+  }
+
+  if(pendiente > 0){
+    alert("❌ No se puede eliminar la factura: aún tiene pagos pendientes.");
+    return;
+  }
+
+  if(confirm("¿Seguro que deseas eliminar esta factura?")){
+    let facturas = load(LS_INVOICES);
+    facturas = facturas.filter(f=>f.id !== facturaActual.id);
+    save(LS_INVOICES, facturas);
+
+    alert("✅ Factura eliminada correctamente");
+    document.getElementById('modalFactura').classList.add('hidden');
+    facturaActual = null;
+    renderPendientes();
+  }
+};
 
 function saveFactura(){
   const facturas = load(LS_INVOICES);
@@ -152,27 +207,6 @@ function saveFactura(){
   if(idx>=0){ facturas[idx]=facturaActual; save(LS_INVOICES,facturas); }
 }
 
-// Reusar la función de facturación
-function recalcularCuotas(factura){
-  if(factura.pago !== "credito" || !factura.plan) return factura;
-
-  const cuotas = factura.plan==="semanal" ? 4 : 2;
-  const monto = Math.ceil(factura.total / cuotas);
-  const hoy = new Date();
-
-  factura.pagos = [];
-  for(let i=1;i<=cuotas;i++){
-    const fecha = new Date(hoy);
-    fecha.setDate(hoy.getDate() + (factura.plan==="semanal" ? i*7 : i*15));
-    factura.pagos.push({
-      fecha: fecha.toISOString().split("T")[0],
-      monto,
-      pagado: false,
-      mora: 0
-    });
-  }
-  return factura;
-}
-
+// Inicializar
 searchInput.addEventListener('input', e=>renderPendientes(e.target.value));
 document.addEventListener('DOMContentLoaded', ()=>renderPendientes());

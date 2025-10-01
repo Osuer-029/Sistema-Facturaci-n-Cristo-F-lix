@@ -6,7 +6,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <title>Facturación</title>
   <link rel="stylesheet" href="facturacion.css" />
-  <!-- Iconos de Lucide -->
+  <!-- Flatpickr (Calendario) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <!-- Iconos -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
@@ -16,14 +19,14 @@
 
   <main class="container">
     <form id="facturaForm">
-      <!-- Selección Cliente -->
+      <!-- Cliente -->
       <section class="card">
         <h2>Cliente</h2>
         <button type="button" class="btn" id="btnSelectClient">Seleccionar Cliente</button>
         <p id="selectedClient">Ningún cliente seleccionado</p>
       </section>
 
-      <!-- Selección Productos -->
+      <!-- Productos -->
       <section class="card">
         <h2>Productos</h2>
         <button type="button" class="btn" id="btnSelectProduct">Añadir Producto</button>
@@ -31,29 +34,25 @@
         <p><b>Total:</b> $<span id="totalFactura">0.00</span></p>
       </section>
 
-      <!-- Forma de Pago -->
-      <!-- Forma de Pago -->
-<section class="card">
-  <h2>Forma de Pago</h2>
-  <label><input type="radio" name="pago" value="efectivo" checked> Efectivo</label>
-  <label><input type="radio" name="pago" value="credito"> Crédito</label>
+      <!-- Pago -->
+      <section class="card">
+        <h2>Forma de Pago</h2>
+        <label><input type="radio" name="pago" value="efectivo" checked> Efectivo</label>
+        <label><input type="radio" name="pago" value="credito"> Crédito</label>
 
-  <!-- Plan de pagos (solo crédito) -->
-  <div id="planPagosBox" style="display:none; margin-top:10px;">
-    <p><b>Plan de pagos:</b></p>
-    <label><input type="radio" name="plan" value="semanal" checked> Semanal</label>
-    <label><input type="radio" name="plan" value="quincenal"> Quincenal</label>
-  </div>
+        <!-- Calendario solo si crédito -->
+        <div id="calendarBox" style="display:none; margin-top:10px;">
+          <p><b>Seleccionar días de pago:</b></p>
+          <input type="text" id="calendarPagos" placeholder="Haz clic para elegir fechas">
+          <ul id="listaPagos"></ul>
+        </div>
 
-  <!-- 🔹 Botones en fila -->
-  <!-- 🔹 Botones alineados a la derecha -->
-<div class="row" style="margin-top:15px; display:flex; justify-content:flex-end; gap:10px;">
-  <button type="submit" class="btn success">Guardar Factura</button>
-  <button type="button" class="btn" id="resetForm">Limpiar</button>
-</div>
-
-</section>
-
+        <!-- Botones -->
+        <div class="row">
+          <button type="submit" class="btn success">Guardar Factura</button>
+          <button type="button" class="btn" id="resetForm">Limpiar</button>
+        </div>
+      </section>
     </form>
   </main>
 
@@ -77,7 +76,7 @@
     </div>
   </div>
 
-  <!-- Footer de navegación -->
+  <!-- Footer -->
   <footer class="navbar">
     <a href="index.html" class="nav-item"><i data-lucide="home"></i><span>Inicio</span></a>
     <a href="inventario.html" class="nav-item"><i data-lucide="package"></i><span>Inventario</span></a>
@@ -88,9 +87,8 @@
   </footer>
 
   <script>
-    lucide.createIcons(); // activar iconos en todas las páginas
+    lucide.createIcons();
   </script>
-
   <script src="facturacion.js"></script>
 </body>
 </html>

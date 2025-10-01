@@ -4,8 +4,7 @@ const LS_INVOICES = 'facturacion_invoices_v1';
 
 let selectedClient = null;
 let selectedProducts = [];
-let editingInvoiceId = null;
-let originalItems = [];
+let fechasSeleccionadas = []; // 🔹 Fechas de pago
 
 function load(key){
   try{
@@ -115,32 +114,37 @@ window.removeProduct = (i) => {
   updateProductList();
 };
 
-// --- MOSTRAR / OCULTAR PLAN DE PAGOS ---
+// --- MOSTRAR / OCULTAR CALENDARIO ---
 document.querySelectorAll('input[name="pago"]').forEach(radio=>{
   radio.addEventListener('change', e=>{
-    document.getElementById('planPagosBox').style.display = 
+    document.getElementById('calendarBox').style.display = 
       e.target.value==="credito" ? "block" : "none";
   });
 });
 
-// --- GENERAR Y RECALCULAR CUOTAS ---
-function recalcularCuotas(factura){
-  if(factura.pago !== "credito" || !factura.plan) return factura;
-  const cuotas = factura.plan==="semanal" ? 4 : 2;
-  const monto = Math.ceil(factura.total / cuotas);
-  const hoy = new Date();
-  factura.pagos = [];
-  for(let i=1;i<=cuotas;i++){
-    const fecha = new Date(hoy);
-    fecha.setDate(hoy.getDate() + (factura.plan==="semanal" ? i*7 : i*15));
-    factura.pagos.push({
-      fecha: fecha.toISOString().split("T")[0],
-      monto,
-      pagado: false,
-      mora: 0
-    });
+// --- CALENDARIO DE PAGOS ---
+flatpickr("#calendarPagos", {
+  mode: "multiple",
+  dateFormat: "Y-m-d",
+  onChange: (selectedDates) => {
+    fechasSeleccionadas = selectedDates;
+    renderPagos();
   }
-  return factura;
+});
+
+function renderPagos(){
+  const lista = document.getElementById("listaPagos");
+  lista.innerHTML = "";
+  if(fechasSeleccionadas.length === 0) return;
+
+  const total = parseFloat(document.getElementById("totalFactura").textContent);
+  const monto = (total / fechasSeleccionadas.length).toFixed(2);
+
+  fechasSeleccionadas.forEach((fecha,i)=>{
+    const li = document.createElement("li");
+    li.textContent = `${i+1}. ${fecha.toLocaleDateString()} → $${monto} (pendiente)`;
+    lista.appendChild(li);
+  });
 }
 
 // --- GUARDAR FACTURA ---
@@ -161,11 +165,18 @@ document.getElementById('facturaForm').onsubmit = e => {
   const pago = document.querySelector('input[name="pago"]:checked').value;
   const total = selectedProducts.reduce((sum,p) => sum + p.price*p.qty, 0);
 
-  let plan = null;
   let pagos = [];
   if(pago==="credito"){
-    plan = document.querySelector('input[name="plan"]:checked').value;
-    pagos = [];
+    if(fechasSeleccionadas.length === 0){
+      alert("Seleccione al menos una fecha de pago en el calendario");
+      return;
+    }
+    pagos = fechasSeleccionadas.map(f => ({
+      fecha: f.toISOString().split("T")[0],
+      monto: (total / fechasSeleccionadas.length).toFixed(2),
+      pagado: false,
+      mora: 0
+    }));
   }
 
   let factura = {
@@ -176,11 +187,8 @@ document.getElementById('facturaForm').onsubmit = e => {
     total,
     fecha: new Date().toISOString(),
     estado: pago==="credito" ? "pendiente" : "pagada",
-    plan,
     pagos
   };
-
-  factura = recalcularCuotas(factura);
 
   const invoices = load(LS_INVOICES);
   invoices.push(factura);
@@ -195,13 +203,13 @@ document.getElementById('facturaForm').onsubmit = e => {
   });
   save(LS_PRODUCTS, productos);
 
-  imprimirFacturaPDF(factura); // imprimir al guardar
+  imprimirFacturaPDF(factura);
 
   alert("Factura guardada correctamente ✅");
   location.href = "index.html"; 
 };
 
-// --- IMPRIMIR FACTURA EN PDF (ESTILO TICKET) ---
+// --- IMPRIMIR FACTURA EN PDF ---
 function imprimirFacturaPDF(factura){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({orientation:"portrait",unit:"pt",format:[220,600]});

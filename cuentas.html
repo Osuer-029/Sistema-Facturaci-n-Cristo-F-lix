@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Cuentas por Cobrar</title>
   <link rel="stylesheet" href="facturacion.css">
-  <!-- Iconos de Lucide -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
@@ -33,11 +33,12 @@
       <button class="btn" id="btnAgregarProducto">Agregar Producto</button>
       <h4>Pagos</h4>
       <ul id="listaPagos"></ul>
+      <button class="btn danger" id="btnEliminarFactura">🗑️ Eliminar Factura</button>
       <button class="btn close" id="cerrarFactura">Cerrar</button>
     </div>
   </div>
 
-  <!-- Modal productos (para agregar más a factura) -->
+  <!-- Modal productos -->
   <div id="modalProducts" class="modal hidden">
     <div class="modal-content">
       <h3>Seleccionar Producto</h3>
@@ -47,21 +48,35 @@
     </div>
   </div>
 
-    <!-- Footer de navegación -->
+  <!-- Modal opciones al agregar producto -->
+  <div id="modalOpciones" class="modal hidden">
+    <div class="modal-content">
+      <h3>¿Qué hacer con el nuevo producto?</h3>
+      <p id="productoNuevo"></p>
+      <button class="btn success" id="opcionSumar">➕ Sumar al saldo existente</button>
+      <button class="btn" id="opcionNuevaFecha">📅 Crear nueva fecha de pago</button>
+      <div id="calendarBox" class="hidden" style="margin-top:10px;">
+        <h4>Selecciona la nueva fecha de pago:</h4>
+        <input type="text" id="fechaFlatpickr">
+      </div>
+      <button class="btn close" id="cerrarOpciones">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
   <footer class="navbar">
     <a href="index.html" class="nav-item"><i data-lucide="home"></i><span>Inicio</span></a>
     <a href="inventario.html" class="nav-item"><i data-lucide="package"></i><span>Inventario</span></a>
     <a href="clientes.html" class="nav-item"><i data-lucide="users"></i><span>Clientes</span></a>
     <a href="facturacion.html" class="nav-item"><i data-lucide="file-text"></i><span>Facturación</span></a>
-    <a href="cuentas.html" class="nav-item"><i data-lucide="credit-card"></i><span>Cuentas</span></a>
+    <a href="cuentas.html" class="nav-item active"><i data-lucide="credit-card"></i><span>Cuentas</span></a>
     <a href="historial.html" class="nav-item"><i data-lucide="archive"></i><span>Historial</span></a>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script>
-    lucide.createIcons(); // activar iconos en todas las páginas
+    lucide.createIcons();
   </script>
-
-
   <script src="cuentas.js"></script>
 </body>
 </html>
