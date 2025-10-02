@@ -171,11 +171,19 @@ document.getElementById('facturaForm').onsubmit = e => {
       alert("Seleccione al menos una fecha de pago en el calendario");
       return;
     }
+
+    // Detectar si todas las fechas son quincenales (15 o 30)
+    let tipoPlan = "semanal";
+    if(fechasSeleccionadas.every(d => [15,30].includes(d.getDate()))){
+      tipoPlan = "quincenal";
+    }
+
     pagos = fechasSeleccionadas.map(f => ({
       fecha: f.toISOString().split("T")[0],
       monto: (total / fechasSeleccionadas.length).toFixed(2),
       pagado: false,
-      mora: 0
+      mora: 0, // siempre empieza en 0
+      tipoPlan // guardamos el tipo de plan, para luego aplicar la mora correcta
     }));
   }
 
@@ -208,6 +216,8 @@ document.getElementById('facturaForm').onsubmit = e => {
   alert("Factura guardada correctamente ✅");
   location.href = "index.html"; 
 };
+
+
 
 // --- IMPRIMIR FACTURA EN PDF ---
 function imprimirFacturaPDF(factura){

@@ -61,22 +61,30 @@ document.getElementById('cerrarFactura').onclick = ()=>{
 // Render pagos
 function renderPagos(){
   const ul = document.getElementById('listaPagos');
-  if(!facturaActual || !facturaActual.pagos){ ul.innerHTML="Sin pagos programados"; return; }
+  if(!facturaActual || !facturaActual.pagos){ 
+    ul.innerHTML="Sin pagos programados"; 
+    return; 
+  }
 
   ul.innerHTML = facturaActual.pagos.map((p,i)=>`
     <li>
-      ${new Date(p.fecha).toLocaleDateString()} - $${p.monto} 
-      ${p.pagado ? "✅ Pagado" : "⏳ Pendiente"} 
-      ${p.mora>0 ? `<span style="color:red">+ Mora $${p.mora}</span>`:""}
+      <b>${new Date(p.fecha).toLocaleDateString()}</b> - 
+      <span>Monto: $${p.monto}</span>
+      ${p.pagado ? " ✅ Pagado" : " ⏳ Pendiente"}
+      
+      <br>
+      Mora: <input type="number" value="${p.mora||0}" min="0" 
+        style="width:80px" onchange="editarMora(${i}, this.value)">
+      
       ${!p.pagado ? `
         <button onclick="marcarPago(${i})">Pagar</button>
-        <button onclick="agregarMora(${i})">Mora +300</button>
       `:""}
     </li>
   `).join("");
 
   saveFactura();
 }
+
 
 // Marcar pago
 window.marcarPago = (i)=>{
@@ -86,11 +94,12 @@ window.marcarPago = (i)=>{
 };
 
 // Agregar mora
-window.agregarMora = (i)=>{
-  facturaActual.pagos[i].mora += 300;
+window.editarMora = (i, nuevaMora)=>{
+  facturaActual.pagos[i].mora = parseFloat(nuevaMora) || 0;
   saveFactura();
   renderPagos();
 };
+
 
 // Modal productos
 const modalProducts = document.getElementById('modalProducts');
