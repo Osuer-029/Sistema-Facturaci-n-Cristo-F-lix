@@ -58,7 +58,7 @@ document.getElementById('cerrarFactura').onclick = ()=>{
   facturaActual=null;
 };
 
-// Render pagos
+// Render pagos + moras
 function renderPagos(){
   const ul = document.getElementById('listaPagos');
   if(!facturaActual || !facturaActual.pagos){ 
@@ -66,25 +66,62 @@ function renderPagos(){
     return; 
   }
 
-  ul.innerHTML = facturaActual.pagos.map((p,i)=>`
-    <li>
-      <b>${new Date(p.fecha).toLocaleDateString()}</b> - 
-      <span>Monto: $${p.monto}</span>
-      ${p.pagado ? " ✅ Pagado" : " ⏳ Pendiente"}
-      
-      <br>
-      Mora: <input type="number" value="${p.mora||0}" min="0" 
-        style="width:80px" onchange="editarMora(${i}, this.value)">
-      
-      ${!p.pagado ? `
-        <button onclick="marcarPago(${i})">Pagar</button>
-      `:""}
-    </li>
-  `).join("");
+  let hoy = new Date();
 
+  // --- Revisar si hay pagos vencidos ---
+  for(let i=0; i<facturaActual.pagos.length; i++){
+    let p = facturaActual.pagos[i];
+    let fechaPago = new Date(p.fecha);
+
+    if(!p.pagado && fechaPago < hoy){
+      facturaActual.moras = facturaActual.moras || [];
+      facturaActual.moras.push({
+        fecha: hoy.toISOString().split("T")[0],
+        monto: 0,   // 👈 empieza en 0, tú lo editas
+        pagado: false
+      });
+
+      // Reprogramar el pago original hacia adelante
+      if(p.tipoPlan === "quincenal"){
+        fechaPago.setDate(fechaPago.getDate() + 15);
+      } else {
+        fechaPago.setDate(fechaPago.getDate() + 7);
+      }
+      p.fecha = fechaPago.toISOString().split("T")[0];
+    }
+  }
+
+  // --- Renderizar pagos ---
+  let html = "<h4>Pagos</h4>";
+  facturaActual.pagos.forEach((p,i)=>{
+    html += `
+      <li>
+        <b>${new Date(p.fecha).toLocaleDateString()}</b> - $${p.monto} 
+        ${p.pagado ? "✅" : `⏳ <button onclick="marcarPago(${i})">Pagar</button>`}
+      </li>
+    `;
+  });
+
+  // --- Renderizar moras ---
+  html += "<h4>Moras</h4>";
+  if(facturaActual.moras && facturaActual.moras.length > 0){
+    facturaActual.moras.forEach((m,j)=>{
+      html += `
+        <li>
+          Mora (${new Date(m.fecha).toLocaleDateString()}) - 
+          <input type="number" value="${m.monto}" min="0" style="width:80px"
+            onchange="editarMora(${j}, this.value)">
+          ${m.pagado ? "✅" : `<button onclick="pagarMora(${j})">Pagar mora</button>`}
+        </li>
+      `;
+    });
+  } else {
+    html += "<p>Sin moras</p>";
+  }
+
+  ul.innerHTML = html;
   saveFactura();
 }
-
 
 // Marcar pago
 window.marcarPago = (i)=>{
@@ -93,13 +130,22 @@ window.marcarPago = (i)=>{
   renderPagos();
 };
 
-// Agregar mora
-window.editarMora = (i, nuevaMora)=>{
-  facturaActual.pagos[i].mora = parseFloat(nuevaMora) || 0;
+// Editar mora manualmente
+window.editarMora = (j, valor)=>{
+  facturaActual.moras[j].monto = parseFloat(valor) || 0;
+  saveFactura();
+};
+
+// Pagar mora
+window.pagarMora = (j)=>{
+  if(facturaActual.moras[j].monto <= 0){
+    alert("⚠️ Debes asignar un monto válido a la mora antes de marcarla como pagada.");
+    return;
+  }
+  facturaActual.moras[j].pagado = true;
   saveFactura();
   renderPagos();
 };
-
 
 // Modal productos
 const modalProducts = document.getElementById('modalProducts');
@@ -190,11 +236,17 @@ document.getElementById('btnEliminarFactura').onclick = ()=>{
   if(facturaActual.pagos && facturaActual.pagos.length > 0){
     pendiente = facturaActual.pagos
       .filter(p=>!p.pagado)
-      .reduce((sum,p)=> sum + parseFloat(p.monto) + parseFloat(p.mora||0), 0);
+      .reduce((sum,p)=> sum + parseFloat(p.monto), 0);
+  }
+
+  if(facturaActual.moras && facturaActual.moras.length > 0){
+    pendiente += facturaActual.moras
+      .filter(m=>!m.pagado)
+      .reduce((sum,m)=> sum + parseFloat(m.monto), 0);
   }
 
   if(pendiente > 0){
-    alert("❌ No se puede eliminar la factura: aún tiene pagos pendientes.");
+    alert("❌ No se puede eliminar la factura: aún tiene pagos o moras pendientes.");
     return;
   }
 

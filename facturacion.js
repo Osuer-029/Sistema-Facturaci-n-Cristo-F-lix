@@ -188,15 +188,17 @@ document.getElementById('facturaForm').onsubmit = e => {
   }
 
   let factura = {
-    id: Date.now(),
-    cliente: selectedClient,
-    productos: selectedProducts,
-    pago,
-    total,
-    fecha: new Date().toISOString(),
-    estado: pago==="credito" ? "pendiente" : "pagada",
-    pagos
-  };
+  id: Date.now(),
+  cliente: selectedClient,
+  productos: selectedProducts,
+  pago,
+  total,
+  fecha: new Date().toISOString(),
+  estado: pago==="credito" ? "pendiente" : "pagada",
+  pagos,
+  moras: [] // 👈 lista de moras separada
+};
+
 
   const invoices = load(LS_INVOICES);
   invoices.push(factura);
