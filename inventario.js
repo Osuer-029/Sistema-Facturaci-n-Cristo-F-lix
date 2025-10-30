@@ -1,109 +1,107 @@
-// inventario.js
-// Inventario con localStorage, CRUD, búsqueda, edición, eliminación y "vender" (rebajar stock).
+// inventario.js (module)
+// Inventario con Firestore + Storage (sin autenticación).
+// Requiere Firebase v9 (se importa desde CDN).
 
-const LS_KEY = 'facturacion_products_v1';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, doc, updateDoc, deleteDoc,
+  onSnapshot, orderBy, query, where, getDoc, serverTimestamp, runTransaction
+} from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+import {
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
+} from "https://www.gstatic.com/firebasejs/9.22.1/firebase-storage.js";
 
-// --- Helpers DB ---
-function readDB(){
-  try{
-    return JSON.parse(localStorage.getItem(LS_KEY) || '[]');
-  }catch(e){
-    console.error('DB parse error', e);
-    return [];
-  }
-}
-function writeDB(arr){
-  localStorage.setItem(LS_KEY, JSON.stringify(arr));
-}
+/* ====== CONFIG de Firebase (usa la que me diste) ====== */
+const firebaseConfig = {
+  apiKey: "AIzaSyAvUePNjiKhiFePN5PY4yOqwgIHy8F_few",
+  authDomain: "sistema-cristo-felix-2.firebaseapp.com",
+  projectId: "sistema-cristo-felix-2",
+  storageBucket: "sistema-cristo-felix-2.firebasestorage.app",
+  messagingSenderId: "897774362587",
+  appId: "1:897774362587:web:2221e7a21148d3cf3711fe",
+  measurementId: "G-L8PPVC98S6"
+};
 
-// Genera código único: P + fecha(ms) + 3 dígitos aleatorios
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+/* ====== Utilidades locales ====== */
 function genCode(){
   const t = Date.now().toString(36).toUpperCase();
   const r = Math.floor(Math.random()*900 + 100);
   return `P-${t}-${r}`;
 }
-
-// --- CRUD ---
-function addProduct(prod){
-  const db = readDB();
-  db.unshift(prod); // mostrar recientes arriba
-  writeDB(db);
+function escapeHtml(s = '') {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
 }
-function updateProduct(code, updates){
-  const db = readDB();
-  const idx = db.findIndex(p => p.code === code);
-  if (idx === -1) return false;
-  db[idx] = {...db[idx], ...updates, updatedAt: new Date().toISOString()};
-  writeDB(db);
-  return true;
-}
-function deleteProduct(code){
-  let db = readDB();
-  db = db.filter(p => p.code !== code);
-  writeDB(db);
-}
-function getProduct(code){
-  return readDB().find(p => p.code === code);
+function formatMoney(n){
+  const v = Number(n) || 0;
+  return v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
-// Venta — reduce stock. Devuelve objeto {ok, message}
-function sellProduct(code, qty){
-  qty = Number(qty);
-  if (qty <= 0) return {ok:false, message:'Cantidad inválida'};
-  const p = getProduct(code);
-  if (!p) return {ok:false, message:'Producto no encontrado'};
-  if (p.stock < qty) return {ok:false, message:'Stock insuficiente'};
-  updateProduct(code, {stock: p.stock - qty});
-  return {ok:true, message:'Venta registrada'};
-}
-
-// --- UI ---
+/* ====== Elementos DOM ====== */
 const form = document.getElementById('productForm');
 const nameInput = document.getElementById('name');
 const costInput = document.getElementById('cost');
 const priceInput = document.getElementById('price');
 const stockInput = document.getElementById('stock');
 const descInput = document.getElementById('description');
+const imageInput = document.getElementById('image');
+const imagePreviewWrap = document.getElementById('imagePreviewWrap');
+const imagePreview = document.getElementById('imagePreview');
+const removeImageBtn = document.getElementById('removeImage');
+
 const listEl = document.getElementById('list');
 const searchInput = document.getElementById('search');
 const filterStock = document.getElementById('filterStock');
+const orderByEl = document.getElementById('orderBy');
 const formTitle = document.getElementById('formTitle');
 const cancelEditBtn = document.getElementById('cancelEdit');
+const saveBtn = document.getElementById('saveBtn');
+const statusEl = document.getElementById('status');
 
-let editingCode = null;
+let editingId = null;
+let currentImageFile = null; // File para subir
+let unsubscribeSnapshot = null;
 
-function resetForm(){
-  form.reset();
-  stockInput.value = 0;
-  editingCode = null;
-  formTitle.textContent = 'Agregar producto';
-  cancelEditBtn.style.display = 'none';
-}
+/* ====== Firestore collection ref ====== */
+const productosCol = collection(db, 'productos');
 
-function renderList(){
-  const q = (searchInput.value || '').trim().toLowerCase();
-  const filter = filterStock.value;
-  let prods = readDB();
+/* ====== Preview de imagen ====== */
+imageInput.addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (!f) { currentImageFile = null; imagePreviewWrap.style.display = 'none'; return; }
+  currentImageFile = f;
+  const url = URL.createObjectURL(f);
+  imagePreview.src = url;
+  imagePreviewWrap.style.display = 'block';
+});
+removeImageBtn.addEventListener('click', () => {
+  imageInput.value = '';
+  currentImageFile = null;
+  imagePreview.src = '';
+  imagePreviewWrap.style.display = 'none';
+});
 
-  if (q){
-    prods = prods.filter(p => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q));
-  }
-  if (filter === 'low') prods = prods.filter(p => p.stock > 0 && p.stock <= 5);
-  if (filter === 'out') prods = prods.filter(p => p.stock <= 0);
-
-  if (prods.length === 0){
-    listEl.innerHTML = `<p style="color:#6b7280;margin:6px 0">No hay productos que coincidan.</p>`;
+/* ====== Render listado ====== */
+function renderProducts(snapshotDocs){
+  if (!snapshotDocs || snapshotDocs.length === 0){
+    listEl.innerHTML = `<p class="small">No hay productos.</p>`;
     return;
   }
 
-  listEl.innerHTML = prods.map(p => {
+  const nodes = snapshotDocs.map(docSnap => {
+    const p = docSnap.data();
+    const id = docSnap.id;
     return `
-      <div class="product-item" data-code="${p.code}">
+      <div class="product-item" data-id="${id}">
         <div class="product-meta">
-          <div class="prod-name">${escapeHtml(p.name)} <span class="prod-code">(${p.code})</span></div>
-          <div>Precio: ${formatMoney(p.price)} · Costo: ${formatMoney(p.cost)}</div>
-          <div class="prod-stock">Stock: <strong>${p.stock}</strong></div>
+          <div class="prod-name" style="font-weight:700">${escapeHtml(p.name)} <span class="prod-code small">(${id})</span></div>
+          <div class="small">Precio: ${formatMoney(p.price)} · Costo: ${formatMoney(p.cost)}</div>
+          <div class="prod-stock">Stock: <strong>${p.stock ?? 0}</strong></div>
           <div style="font-size:13px;color:#6b7280;margin-top:6px">${p.description ? escapeHtml(p.description) : ''}</div>
+          ${p.imageURL ? `<div style="margin-top:6px"><img src="${escapeHtml(p.imageURL)}" class="img-preview" width="60" height="60"></div>` : ''}
         </div>
         <div class="actions">
           <button class="action-btn action-sell" data-action="sell">Vender</button>
@@ -113,141 +111,252 @@ function renderList(){
       </div>
     `;
   }).join('');
+
+  listEl.innerHTML = nodes;
 }
 
-// seguridad simple al renderizar texto
-function escapeHtml(s = '') {
-  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
-}
-function formatMoney(n){
-  const v = Number(n) || 0;
-  return v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+/* ====== Listen (real-time) ====== */
+function startListening(){
+  // Construir query base (orden por createdAt desc por defecto)
+  // NOTA: para filtros complejos podemos re-consultar. Aquí usamos una escucha simple y filtramos en cliente.
+  if (unsubscribeSnapshot) unsubscribeSnapshot();
+
+  const q = query(productosCol, orderBy('createdAt', 'desc'));
+  unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+    // snapshot.docs es una lista de docSnapshots
+    // Aplicar búsqueda y filtros en cliente para mantener onSnapshot simple
+    let docs = snapshot.docs;
+
+    // Search filter text
+    const qtext = (searchInput.value || '').trim().toLowerCase();
+    if (qtext) {
+      docs = docs.filter(ds => {
+        const p = ds.data();
+        return (p.name || '').toLowerCase().includes(qtext) || ds.id.toLowerCase().includes(qtext);
+      });
+    }
+
+    // Stock filter
+    const f = filterStock.value;
+    if (f === 'low') docs = docs.filter(ds => {
+      const s = ds.data().stock ?? 0; return s > 0 && s <= 5;
+    });
+    if (f === 'out') docs = docs.filter(ds => (ds.data().stock ?? 0) <= 0);
+
+    // Ordering client-side (si se pide distinto)
+    const order = orderByEl.value;
+    if (order === 'name_asc') {
+      docs.sort((a,b)=> (a.data().name||'').localeCompare(b.data().name||''));
+    } else if (order === 'stock_asc') {
+      docs.sort((a,b)=> (a.data().stock||0) - (b.data().stock||0));
+    } // else createdAt_desc ya viene del servidor
+
+    renderProducts(docs);
+  }, (err) => {
+    console.error('Snapshot error', err);
+    listEl.innerHTML = `<p class="small" style="color:#ef4444">Error al cargar productos.</p>`;
+  });
 }
 
-// Event: submit (create / update)
-form.addEventListener('submit', (e) => {
+/* ====== CRUD: Add / Update ====== */
+async function uploadImageAndGetURL(productId, file, previousPath = null){
+  if (!file) return null;
+  const ext = file.name.split('.').pop();
+  const filename = `productos/${productId}/${Date.now()}.${ext}`;
+  const r = storageRef(storage, filename);
+  const snap = await uploadBytes(r, file);
+  const url = await getDownloadURL(snap.ref);
+  // Eliminar imagen anterior si existe
+  if (previousPath) {
+    try { await deleteObject(storageRef(storage, previousPath)); } catch(e){ /*ignore*/ }
+  }
+  // Devolver objeto con url y storagePath (para borrar después)
+  return { url, path: filename };
+}
+
+form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const name = nameInput.value.trim();
+  saveBtn.disabled = true;
+  statusEl.textContent = 'Guardando...';
+
+  const name = (nameInput.value || '').trim();
   const cost = parseFloat(costInput.value) || 0;
   const price = parseFloat(priceInput.value) || 0;
   const stock = parseInt(stockInput.value) || 0;
-  const description = descInput.value.trim();
+  const description = (descInput.value || '').trim();
 
-  if (!name) { alert('Nombre requerido'); return; }
-  if (cost < 0 || price < 0 || stock < 0) { alert('Valores numéricos inválidos'); return; }
+  if (!name) { alert('Nombre requerido'); saveBtn.disabled = false; statusEl.textContent=''; return; }
+  if (cost < 0 || price < 0 || stock < 0) { alert('Valores numéricos inválidos'); saveBtn.disabled = false; statusEl.textContent=''; return; }
 
-  if (editingCode){
-    updateProduct(editingCode, { name, cost, price, stock, description });
-  } else {
-    const newProd = {
-      code: genCode(),
-      name,
-      cost,
-      price,
-      stock,
-      description,
-      createdAt: new Date().toISOString()
-    };
-    addProduct(newProd);
+  try {
+    if (editingId) {
+      // UPDATE
+      const productDocRef = doc(db, 'productos', editingId);
+      const prodSnap = await getDoc(productDocRef);
+      if (!prodSnap.exists()) { alert('Producto no encontrado'); resetForm(); saveBtn.disabled = false; statusEl.textContent=''; return; }
+      const prev = prodSnap.data() || {};
+
+      let imageInfo = { url: prev.imageURL || null, path: prev.imagePath || null };
+      if (currentImageFile) {
+        // subir nueva imagen y borrar anterior
+        const up = await uploadImageAndGetURL(editingId, currentImageFile, prev.imagePath || null);
+        if (up) imageInfo = { url: up.url, path: up.path };
+      } else if (imageInput.value === '' && prev.imagePath) {
+        // Si el usuario quitó la imagen (borró input) -> borrar imagen anterior
+        try { await deleteObject(storageRef(storage, prev.imagePath)); } catch(e){ /*ignore*/ }
+        imageInfo = { url: null, path: null };
+      }
+
+      await updateDoc(productDocRef, {
+        name, cost, price, stock, description,
+        imageURL: imageInfo.url || null,
+        imagePath: imageInfo.path || null,
+        updatedAt: serverTimestamp()
+      });
+
+    } else {
+      // CREATE
+      const newId = genCode();
+      const productDocRef = doc(db, 'productos', newId); // usar nuestro código como ID
+      let imageInfo = { url: null, path: null };
+      if (currentImageFile) {
+        const up = await uploadImageAndGetURL(newId, currentImageFile, null);
+        if (up) imageInfo = { url: up.url, path: up.path };
+      }
+      await addDoc(productosCol, {
+        // aunque usamos addDoc (genera id), queremos preservar el código en el documento; para consistencia
+        // la alternativa es setDoc con doc(db,'productos',newId) pero addDoc + guardar code en campo también ok
+        code: newId,
+        name, cost, price, stock,
+        description,
+        imageURL: imageInfo.url || null,
+        imagePath: imageInfo.path || null,
+        createdAt: serverTimestamp()
+      });
+    }
+
+    resetForm();
+    statusEl.textContent = 'Guardado';
+    setTimeout(()=> statusEl.textContent = '', 1500);
+  } catch (err) {
+    console.error(err);
+    alert('Error al guardar producto: ' + (err.message || err));
+    statusEl.textContent = '';
+  } finally {
+    saveBtn.disabled = false;
   }
-
-  resetForm();
-  renderList();
 });
 
-// Cancelar edición
+/* ====== Reset form ====== */
+function resetForm(){
+  form.reset();
+  currentImageFile = null;
+  imagePreview.src = '';
+  imagePreviewWrap.style.display = 'none';
+  editingId = null;
+  formTitle.textContent = 'Agregar producto';
+  cancelEditBtn.style.display = 'none';
+}
+
+/* ====== Delegación de acciones en la lista ====== */
+listEl.addEventListener('click', async (ev) => {
+  const actionBtn = ev.target.closest('button[data-action]');
+  if (!actionBtn) return;
+  const item = ev.target.closest('.product-item');
+  const id = item?.dataset.id;
+  if (!id) return;
+  const action = actionBtn.dataset.action;
+
+  if (action === 'edit') {
+    // Cargar datos en formulario
+    try {
+      const pd = await getDoc(doc(db, 'productos', id));
+      if (!pd.exists()) { alert('Producto no encontrado'); return; }
+      const p = pd.data();
+      editingId = id;
+      nameInput.value = p.name || '';
+      costInput.value = p.cost ?? 0;
+      priceInput.value = p.price ?? 0;
+      stockInput.value = p.stock ?? 0;
+      descInput.value = p.description || '';
+      formTitle.textContent = `Editar: ${id}`;
+      cancelEditBtn.style.display = 'inline-block';
+
+      // Previsualizar imagen si existe
+      if (p.imageURL) {
+        imagePreview.src = p.imageURL;
+        imagePreviewWrap.style.display = 'block';
+        currentImageFile = null;
+        imageInput.value = ''; // vacío para indicar que no se cargará nuevo
+      } else {
+        imagePreview.src = '';
+        imagePreviewWrap.style.display = 'none';
+      }
+
+      window.scrollTo({top:0,behavior:'smooth'});
+    } catch(e){
+      console.error(e);
+      alert('Error cargando producto');
+    }
+  } else if (action === 'delete') {
+    if (!confirm('Eliminar producto? Esta acción no se puede deshacer.')) return;
+    try {
+      const pd = await getDoc(doc(db, 'productos', id));
+      if (pd.exists()) {
+        const p = pd.data();
+        // Borrar imagen del storage si existe
+        if (p.imagePath) {
+          try { await deleteObject(storageRef(storage, p.imagePath)); } catch(e){ /*ignore*/ }
+        }
+      }
+      // Borrar doc
+      await deleteDoc(doc(db, 'productos', id));
+    } catch(err){
+      console.error(err);
+      alert('Error al eliminar');
+    }
+  } else if (action === 'sell') {
+    const qtyStr = prompt('Cantidad a vender (enter para cancelar):', '1');
+    if (qtyStr === null) return;
+    const qty = parseInt(qtyStr);
+    if (isNaN(qty) || qty <= 0) return alert('Cantidad inválida');
+
+    // Usar transaction para evitar race conditions
+    try {
+      const prodRef = doc(db, 'productos', id);
+      await runTransaction(db, async (t)=>{
+        const snap = await t.get(prodRef);
+        if (!snap.exists()) throw new Error('Producto no encontrado');
+        const currentStock = snap.data().stock ?? 0;
+        if (currentStock < qty) throw new Error('Stock insuficiente');
+        t.update(prodRef, { stock: currentStock - qty, updatedAt: serverTimestamp() });
+      });
+      alert('Venta registrada. Stock actualizado.');
+    } catch(err){
+      console.error(err);
+      alert('Error al vender: ' + (err.message || err));
+    }
+  }
+});
+
+/* ====== Cancel edit ====== */
 cancelEditBtn.addEventListener('click', () => {
   resetForm();
 });
 
-// Delegación en lista (vender, editar, eliminar)
-listEl.addEventListener('click', (ev) => {
-  const actionBtn = ev.target.closest('button[data-action]');
-  if (!actionBtn) return;
-  const item = ev.target.closest('.product-item');
-  const code = item?.dataset.code;
-  if (!code) return;
-
-  const action = actionBtn.dataset.action;
-  if (action === 'edit'){
-    const p = getProduct(code);
-    if (!p) return alert('Producto no encontrado');
-    editingCode = code;
-    nameInput.value = p.name;
-    costInput.value = p.cost;
-    priceInput.value = p.price;
-    stockInput.value = p.stock;
-    descInput.value = p.description;
-    formTitle.textContent = `Editar: ${p.code}`;
-    cancelEditBtn.style.display = 'inline-block';
-    window.scrollTo({top:0,behavior:'smooth'});
-  } else if (action === 'delete'){
-    if (!confirm('Eliminar producto? Esta acción no se puede deshacer.')) return;
-    deleteProduct(code);
-    renderList();
-  } else if (action === 'sell'){
-    // Pedir cantidad a vender
-    const qty = prompt('Cantidad a vender (enter para cancelar):', '1');
-    if (qty === null) return;
-    const n = parseInt(qty);
-    if (isNaN(n) || n <= 0) return alert('Cantidad inválida');
-    const res = sellProduct(code, n);
-    if (!res.ok) return alert(res.message);
-    alert('Venta registrada. Stock actualizado.');
-    renderList();
-  }
+/* ====== Buscador / filtros ====== */
+searchInput.addEventListener('input', () => {
+  // restartListening se encarga de filtrar en cliente; solo re-render via snapshot
+  // para forzar re-render, no hacemos nada: onSnapshot ya escucha y aplicamos filtros sobre snapshot docs.
+  startListening();
 });
+filterStock.addEventListener('change', () => startListening());
+orderByEl.addEventListener('change', () => startListening());
 
-// Buscador / filtro
-searchInput.addEventListener('input', () => renderList());
-filterStock.addEventListener('change', () => renderList());
-
-// Inicialización demo (si vacio, dejamos vacío — si quieres datos de prueba descomenta initDemo())
-function initDemoIfEmpty(){
-  const db = readDB();
-  if (db.length === 0){
-    // Dejar vacío para que el usuario agregue sus propios productos.
-    // Si deseas datos de ejemplo, descomenta la línea siguiente:
-    // initDemo();
-  }
-}
-function initDemo(){
-  const sample = [
-    { code: genCode(), name: 'Papel A4 80g', cost: 2.5, price: 5.0, stock: 30, description: 'Caja de 500 hojas', createdAt: new Date().toISOString() },
-    { code: genCode(), name: 'Tinta Negra', cost: 10, price: 20, stock: 8, description: 'Cartucho para impresora', createdAt: new Date().toISOString() },
-  ];
-  writeDB(sample);
+/* ====== Inicialización ====== */
+function init(){
+  // Si quieres datos de prueba, crea manualmente desde la consola de Firebase
+  startListening();
 }
 
-const LS_PRODUCTS = 'facturacion_products_v1';
-
-function load(key){ try{ return JSON.parse(localStorage.getItem(key) || '[]'); }catch{ return []; } }
-function save(key,data){ localStorage.setItem(key, JSON.stringify(data)); }
-
-const lista = document.getElementById('listaInventario');
-
-function renderInventario(){
-  const productos = load(LS_PRODUCTS);
-  if(productos.length===0){
-    lista.innerHTML = "<li>No hay productos</li>";
-    return;
-  }
-
-  lista.innerHTML = productos.map(p => `
-    <li>
-      <b>${p.code} - ${p.name}</b><br>
-      Precio: $${p.price} | Costo: $${p.cost}<br>
-      Stock: ${p.stock}<br>
-      ${p.image ? `<img src="${p.image}" width="50">` : ""}
-    </li>
-  `).join("");
-}
-
-document.addEventListener('DOMContentLoaded', renderInventario);
-
-
-// init
-document.addEventListener('DOMContentLoaded', () => {
-  initDemoIfEmpty();
-  renderList();
-});
+document.addEventListener('DOMContentLoaded', init);

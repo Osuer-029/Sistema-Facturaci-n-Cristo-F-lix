@@ -1,24 +1,62 @@
-const LS_INVOICES = 'facturacion_invoices_v1';
-const LS_PRODUCTS = 'facturacion_products_v1';
+// cuentas.js
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  runTransaction,
+  updateDoc,
+  deleteDoc,
+  addDoc
+} from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
-function load(key){ try{ return JSON.parse(localStorage.getItem(key) || '[]'); }catch{ return []; } }
-function save(key,data){ localStorage.setItem(key, JSON.stringify(data)); }
+import { app } from "./firebaseConfig.js";
+const db = getFirestore(app);
 
+/* ====== DOM ====== */
 const lista = document.getElementById('listaPendientes');
 const searchInput = document.getElementById('searchCuentas');
 
-let facturaActual = null;
-let productoPendiente = null;
+const modalFacturaEl = document.getElementById('modalFactura');
+const detalleEl = document.getElementById('detalleFactura');
+const listaPagosEl = document.getElementById('listaPagos');
+const btnEliminarFactura = document.getElementById('btnEliminarFactura');
+const cerrarFacturaBtn = document.getElementById('cerrarFactura');
 
-// Render facturas pendientes
-function renderPendientes(filtro=""){
-  const facturas = load(LS_INVOICES).filter(f => f.pago==="credito" && f.estado==="pendiente");
-  const q = filtro.toLowerCase();
+const modalProductos = document.getElementById('modalProductos');
+const listProductsModal = document.getElementById('listProductsModal');
+const searchProductModal = document.getElementById('searchProductModal');
+const closeProductsModal = document.getElementById('closeProductsModal');
+
+let facturaActual = null;
+let lastSnapshotDocs = [];
+
+/* ====== Escuchar facturas en tiempo real ====== */
+let unsubscribe = null;
+function startListeningFacturas() {
+  if (unsubscribe) unsubscribe();
+  const col = collection(db, "facturas");
+  unsubscribe = onSnapshot(col, snap => {
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    lastSnapshotDocs = docs;
+    renderPendientesFromDocs(docs, searchInput.value || "");
+  }, err => {
+    console.error("Error escuchando facturas:", err);
+    lista.innerHTML = "<li>Error al cargar facturas</li>";
+  });
+}
+
+/* ====== Render facturas pendientes ====== */
+function renderPendientesFromDocs(docs, filtro = "") {
+  const facturas = docs.filter(f => f.pago === "credito" && f.estado !== "eliminada");
+  const q = (filtro || "").toLowerCase();
   const filtradas = facturas.filter(f =>
-    f.cliente.name.toLowerCase().includes(q) || String(f.id).includes(q)
+    (f.cliente?.name || "").toLowerCase().includes(q) || String(f.id).toLowerCase().includes(q)
   );
 
-  if(filtradas.length===0){
+  if (filtradas.length === 0) {
     lista.innerHTML = "<li>No hay facturas pendientes</li>";
     return;
   }
@@ -26,248 +64,331 @@ function renderPendientes(filtro=""){
   lista.innerHTML = filtradas.map(f => `
     <li>
       <div>
-        <b>Factura #${f.id}</b><br>
-        Cliente: ${f.cliente.name}<br>
-        Total: $${f.total.toFixed(2)}<br>
-        Estado: ${f.estado}<br>
-        Fecha: ${new Date(f.fecha).toLocaleDateString()}
+        <b>Factura #${escapeHtml(String(f.id))}</b><br>
+        Cliente: ${escapeHtml(f.cliente?.name || '---')}<br>
+        Total: $${Number(f.total || 0).toFixed(2)}<br>
+        Estado: ${escapeHtml(f.estado || '---')}
       </div>
-      <button onclick="abrirFactura(${f.id})">🔍 Ver</button>
+      <button onclick="abrirFactura('${f.id}')">🔍 Ver</button>
     </li>
   `).join("");
 }
 
-// Abrir detalle de factura
-window.abrirFactura = (id)=>{
-  const facturas = load(LS_INVOICES);
-  facturaActual = facturas.find(f=>f.id===id);
-  if(!facturaActual) return;
+/* ====== Abrir factura ====== */
+window.abrirFactura = async (id) => {
+  try {
+    const ref = doc(db, "facturas", id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return alert("Factura no encontrada");
+    facturaActual = { id, ...snap.data() };
 
-  const detalle = document.getElementById('detalleFactura');
-  detalle.innerHTML = `
-    <p><b>Cliente:</b> ${facturaActual.cliente.name}</p>
-    <p><b>Total:</b> $${facturaActual.total.toFixed(2)}</p>
+    renderFacturaDetail();
+    modalFacturaEl.classList.remove('hidden');
+  } catch (err) {
+    console.error(err);
+    alert("Error cargando factura");
+  }
+};
+
+function renderFacturaDetail() {
+  if (!facturaActual) return;
+
+  // Productos
+  let productosHTML = "<h4>Productos</h4><ul>";
+  (facturaActual.productos || []).forEach(p => {
+    productosHTML += `<li>${escapeHtml(String(p.qty))} x ${escapeHtml(p.name)} ($${Number(p.price).toFixed(2)})</li>`;
+  });
+  productosHTML += "</ul>";
+
+  detalleEl.innerHTML = `
+    <p><b>Cliente:</b> ${escapeHtml(facturaActual.cliente?.name || '')}</p>
+    <p><b>Total:</b> $${Number(facturaActual.total || 0).toFixed(2)}</p>
+    ${productosHTML}
   `;
 
   renderPagos();
-  document.getElementById('modalFactura').classList.remove('hidden');
-};
 
-document.getElementById('cerrarFactura').onclick = ()=>{
-  document.getElementById('modalFactura').classList.add('hidden');
-  facturaActual=null;
-};
+  if (btnEliminarFactura) btnEliminarFactura.disabled = facturaActual.estado !== "Salda";
+}
 
-// Render pagos + moras
-function renderPagos(){
-  const ul = document.getElementById('listaPagos');
-  if(!facturaActual || !facturaActual.pagos){ 
-    ul.innerHTML="Sin pagos programados"; 
-    return; 
-  }
+/* ====== Cerrar modal ====== */
+if (cerrarFacturaBtn) cerrarFacturaBtn.addEventListener('click', () => {
+  modalFacturaEl.classList.add('hidden');
+  facturaActual = null;
+});
 
-  let hoy = new Date();
+/* ====== Render pagos y moras ====== */
+function renderPagos() {
+  if (!facturaActual) return;
 
-  // --- Revisar si hay pagos vencidos ---
-  for(let i=0; i<facturaActual.pagos.length; i++){
-    let p = facturaActual.pagos[i];
-    let fechaPago = new Date(p.fecha);
-
-    if(!p.pagado && fechaPago < hoy){
-      facturaActual.moras = facturaActual.moras || [];
-      facturaActual.moras.push({
-        fecha: hoy.toISOString().split("T")[0],
-        monto: 0,   // 👈 empieza en 0, tú lo editas
-        pagado: false
-      });
-
-      // Reprogramar el pago original hacia adelante
-      if(p.tipoPlan === "quincenal"){
-        fechaPago.setDate(fechaPago.getDate() + 15);
-      } else {
-        fechaPago.setDate(fechaPago.getDate() + 7);
-      }
-      p.fecha = fechaPago.toISOString().split("T")[0];
-    }
-  }
-
-  // --- Renderizar pagos ---
-  let html = "<h4>Pagos</h4>";
-  facturaActual.pagos.forEach((p,i)=>{
-    html += `
-      <li>
-        <b>${new Date(p.fecha).toLocaleDateString()}</b> - $${p.monto} 
-        ${p.pagado ? "✅" : `⏳ <button onclick="marcarPago(${i})">Pagar</button>`}
-      </li>
-    `;
-  });
-
-  // --- Renderizar moras ---
-  html += "<h4>Moras</h4>";
-  if(facturaActual.moras && facturaActual.moras.length > 0){
-    facturaActual.moras.forEach((m,j)=>{
-      html += `
-        <li>
-          Mora (${new Date(m.fecha).toLocaleDateString()}) - 
-          <input type="number" value="${m.monto}" min="0" style="width:80px"
-            onchange="editarMora(${j}, this.value)">
-          ${m.pagado ? "✅" : `<button onclick="pagarMora(${j})">Pagar mora</button>`}
-        </li>
-      `;
+  listaPagosEl.innerHTML = "<h4>Pagos</h4>";
+  const pagos = facturaActual.pagosRealizados || [];
+  if (pagos.length > 0) {
+    pagos.forEach((p, i) => {
+      listaPagosEl.innerHTML += `<li>${i+1}. $${Number(p.monto).toFixed(2)} ${p.fecha ? ` - ${new Date(p.fecha).toLocaleString()}` : ''}</li>`;
     });
   } else {
-    html += "<p>Sin moras</p>";
+    listaPagosEl.innerHTML += "<p>Sin pagos</p>";
   }
 
-  ul.innerHTML = html;
-  saveFactura();
+  listaPagosEl.innerHTML += "<h4>Moras</h4>";
+  const moras = facturaActual.moras || [];
+  if (moras.length > 0) {
+    moras.forEach((m, i) => {
+      listaPagosEl.innerHTML += `<li>${i+1}. $${Number(m.monto).toFixed(2)} ${m.fecha ? ` - ${new Date(m.fecha).toLocaleString()}` : ''}</li>`;
+    });
+  } else {
+    listaPagosEl.innerHTML += "<p>Sin moras</p>";
+  }
 }
 
-// Marcar pago
-window.marcarPago = (i)=>{
-  facturaActual.pagos[i].pagado=true;
-  saveFactura();
-  renderPagos();
-};
-
-// Editar mora manualmente
-window.editarMora = (j, valor)=>{
-  facturaActual.moras[j].monto = parseFloat(valor) || 0;
-  saveFactura();
-};
-
-// Pagar mora
-window.pagarMora = (j)=>{
-  if(facturaActual.moras[j].monto <= 0){
-    alert("⚠️ Debes asignar un monto válido a la mora antes de marcarla como pagada.");
-    return;
-  }
-  facturaActual.moras[j].pagado = true;
-  saveFactura();
-  renderPagos();
-};
-
-// Modal productos
-const modalProducts = document.getElementById('modalProducts');
-document.getElementById('btnAgregarProducto').onclick = ()=>{
-  renderProducts();
-  modalProducts.classList.remove('hidden');
-};
-document.getElementById('closeProducts').onclick = ()=> modalProducts.classList.add('hidden');
-
-function renderProducts(filter=""){
-  const prods = load(LS_PRODUCTS);
-  const list = document.getElementById('listProducts');
-  list.innerHTML="";
-  prods
-    .filter(p=>p.name.toLowerCase().includes(filter.toLowerCase()))
-    .forEach(p=>{
-      const li=document.createElement('li');
-      li.textContent=`${p.code} - ${p.name} ($${p.price})`;
-      li.onclick=()=>{
-        productoPendiente = p;
-        document.getElementById('productoNuevo').textContent = `${p.name} ($${p.price})`;
-        modalProducts.classList.add('hidden');
-        document.getElementById('modalOpciones').classList.remove('hidden');
-      };
-      list.appendChild(li);
-    });
+/* ====== Guardar factura ====== */
+async function saveFactura() {
+  if (!facturaActual) return;
+  const ref = doc(db, "facturas", facturaActual.id);
+  const payload = {
+    productos: facturaActual.productos || [],
+    pagosRealizados: facturaActual.pagosRealizados || [],
+    moras: facturaActual.moras || [],
+    total: facturaActual.total || 0,
+    estado: facturaActual.estado || 'Pendiente',
+    updatedAt: new Date().toISOString()
+  };
+  await updateDoc(ref, payload);
 }
-document.getElementById('searchProduct').addEventListener('input', e=>renderProducts(e.target.value));
 
-// Modal opciones
-const modalOpciones = document.getElementById('modalOpciones');
-document.getElementById('cerrarOpciones').onclick = ()=> modalOpciones.classList.add('hidden');
+/* ====== Agregar pago ====== */
+window.agregarPago = async () => {
+  if (!facturaActual) return;
+  const monto = parseFloat(prompt("💵 Ingrese el monto del pago:"));
+  if (isNaN(monto) || monto <= 0) return alert("Monto inválido");
 
-// Opción A: sumar al saldo existente
-document.getElementById('opcionSumar').onclick = ()=>{
-  if(!productoPendiente) return;
-  facturaActual.productos.push({...productoPendiente, qty:1});
-  facturaActual.total += productoPendiente.price;
+  facturaActual.pagosRealizados = facturaActual.pagosRealizados || [];
+  facturaActual.pagosRealizados.push({ monto, fecha: new Date().toISOString() });
 
-  if(facturaActual.pagos && facturaActual.pagos.length>0){
-    const extra = productoPendiente.price / facturaActual.pagos.length;
-    facturaActual.pagos.forEach(pg=>{
-      pg.monto = (parseFloat(pg.monto) + extra).toFixed(2);
-    });
-  }
+  // Actualizar total
+  const totalPagado = facturaActual.pagosRealizados.reduce((acc, p) => acc + p.monto, 0);
+  const totalMoras = (facturaActual.moras || []).reduce((acc, m) => acc + m.monto, 0);
+  const totalOriginal = facturaActual.productos.reduce((acc, p) => acc + p.price * p.qty, 0);
+  facturaActual.total = totalOriginal + totalMoras - totalPagado;
 
-  saveFactura();
-  alert("Producto agregado y sumado al saldo ✅");
-  modalOpciones.classList.add('hidden');
+  await saveFactura();
   abrirFactura(facturaActual.id);
 };
 
-// Opción B: nueva fecha de pago con calendario
-document.getElementById('opcionNuevaFecha').onclick = ()=>{
-  document.getElementById('calendarBox').classList.remove('hidden');
+/* ====== Agregar mora ====== */
+window.agregarMora = async () => {
+  if (!facturaActual) return;
+  const monto = parseFloat(prompt("⚠️ Ingrese el monto de la mora:"));
+  if (isNaN(monto) || monto <= 0) return alert("Monto inválido");
 
-  flatpickr("#fechaFlatpickr", {
-    dateFormat: "Y-m-d",
-    minDate: "today",
-    defaultDate: new Date(),
-    onChange: (selectedDates) => {
-      const fecha = selectedDates[0];
-      if(!productoPendiente || !fecha) return;
+  facturaActual.moras = facturaActual.moras || [];
+  facturaActual.moras.push({ monto, fecha: new Date().toISOString() });
 
-      facturaActual.productos.push({...productoPendiente, qty:1});
-      facturaActual.total += productoPendiente.price;
-      facturaActual.pagos.push({
-        fecha: fecha.toISOString().split("T")[0],
-        monto: productoPendiente.price,
-        pagado: false,
-        mora: 0
-      });
+  facturaActual.total += monto;
 
-      saveFactura();
-      alert("Producto agregado con nueva fecha de pago ✅");
-      document.getElementById('calendarBox').classList.add('hidden');
-      modalOpciones.classList.add('hidden');
-      abrirFactura(facturaActual.id);
-    }
-  });
+  await saveFactura();
+  abrirFactura(facturaActual.id);
 };
 
-// Eliminar factura solo si está pagada
-document.getElementById('btnEliminarFactura').onclick = ()=>{
-  if(!facturaActual) return;
-
-  let pendiente = 0;
-  if(facturaActual.pagos && facturaActual.pagos.length > 0){
-    pendiente = facturaActual.pagos
-      .filter(p=>!p.pagado)
-      .reduce((sum,p)=> sum + parseFloat(p.monto), 0);
+/* ====== Marcar factura como saldada ====== */
+window.facturaSalda = async () => {
+  if (!facturaActual) return alert("Seleccione una factura");
+  try {
+    const ref = doc(db, "facturas", facturaActual.id);
+    await updateDoc(ref, { estado: "Salda", updatedAt: new Date().toISOString() });
+    await abrirFactura(facturaActual.id);
+    alert("✅ Factura marcada como Salda.");
+  } catch (err) {
+    console.error(err);
+    alert("Error marcando factura como saldada");
   }
+};
 
-  if(facturaActual.moras && facturaActual.moras.length > 0){
-    pendiente += facturaActual.moras
-      .filter(m=>!m.pagado)
-      .reduce((sum,m)=> sum + parseFloat(m.monto), 0);
-  }
+/* ====== Eliminar factura ====== */
+if (btnEliminarFactura) btnEliminarFactura.addEventListener('click', async () => {
+  if (!facturaActual) return alert("Seleccione una factura");
+  if (facturaActual.estado !== "Salda") return alert("❌ Solo se puede eliminar una factura saldada.");
+  if (!confirm("¿Desea eliminar esta factura? Se moverá a historial.")) return;
 
-  if(pendiente > 0){
-    alert("❌ No se puede eliminar la factura: aún tiene pagos o moras pendientes.");
-    return;
-  }
+  try {
+    await addDoc(collection(db, "historial"), {
+      origen: "facturas",
+      factura: facturaActual,
+      eliminadoAt: new Date().toISOString()
+    });
 
-  if(confirm("¿Seguro que deseas eliminar esta factura?")){
-    let facturas = load(LS_INVOICES);
-    facturas = facturas.filter(f=>f.id !== facturaActual.id);
-    save(LS_INVOICES, facturas);
+    await deleteDoc(doc(db, "facturas", facturaActual.id));
 
-    alert("✅ Factura eliminada correctamente");
-    document.getElementById('modalFactura').classList.add('hidden');
+    alert("✅ Factura movida a historial y eliminada.");
+    modalFacturaEl.classList.add('hidden');
     facturaActual = null;
-    renderPendientes();
+  } catch (err) {
+    console.error(err);
+    alert("Error al eliminar factura: " + (err.message || err));
+  }
+});
+
+/* ====== Modal Productos ====== */
+window.abrirModalProductos = async () => {
+  await renderProductsModal();
+  modalProductos.classList.remove('hidden');
+};
+if (closeProductsModal) closeProductsModal.addEventListener('click', () => modalProductos.classList.add('hidden'));
+
+async function renderProductsModal(filter = "") {
+  listProductsModal.innerHTML = "<li>Cargando productos...</li>";
+  try {
+    const snaps = await getDocs(collection(db, "productos"));
+    const prods = snaps.docs.map(d => ({ id: d.id, ...d.data() }));
+    const q = (filter || "").toLowerCase();
+    const filtered = prods.filter(p => (p.name || '').toLowerCase().includes(q) || (p.code || '').toLowerCase().includes(q));
+    if (filtered.length === 0) {
+      listProductsModal.innerHTML = "<li>No hay productos</li>";
+      return;
+    }
+    listProductsModal.innerHTML = "";
+    filtered.forEach(p => {
+      const li = document.createElement('li');
+      li.innerHTML = `${escapeHtml(p.code || '')} - ${escapeHtml(p.name || '')} ($${Number(p.price||0).toFixed(2)}) - Stock: ${Number(p.stock||0)}
+        <button onclick="agregarProductoAFactura('${p.id}')">Agregar</button>`;
+      listProductsModal.appendChild(li);
+    });
+  } catch (err) {
+    console.error(err);
+    listProductsModal.innerHTML = "<li>Error cargando productos</li>";
+  }
+}
+if (searchProductModal) searchProductModal.addEventListener('input', (e) => renderProductsModal(e.target.value));
+
+/* ====== Agregar producto a factura ====== */
+window.agregarProductoAFactura = async (productId) => {
+  if (!facturaActual) return alert("Abra una factura primero");
+  const qtyStr = prompt("Ingrese la cantidad a agregar:");
+  const qty = parseInt(qtyStr);
+  if (isNaN(qty) || qty <= 0) return alert("Cantidad inválida");
+
+  const prodRef = doc(db, "productos", productId);
+  const facturaRef = doc(db, "facturas", facturaActual.id);
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const pSnap = await tx.get(prodRef);
+      if (!pSnap.exists()) throw new Error("Producto no encontrado");
+      const pData = pSnap.data();
+      const currentStock = Number(pData.stock || 0);
+      if (currentStock < qty) throw new Error(`Stock insuficiente. Disponible: ${currentStock}`);
+
+      tx.update(prodRef, { stock: currentStock - qty, updatedAt: new Date().toISOString() });
+
+      const fSnap = await tx.get(facturaRef);
+      if (!fSnap.exists()) throw new Error("Factura no encontrada");
+      const fData = fSnap.data();
+      const productos = fData.productos ? [...fData.productos] : [];
+
+      const existingIdx = productos.findIndex(it => it.code === (pData.code || productId));
+      if (existingIdx >= 0) {
+        productos[existingIdx].qty = (Number(productos[existingIdx].qty || 0) + qty);
+      } else {
+        productos.push({
+          code: pData.code || productId,
+          name: pData.name || 'Producto',
+          price: Number(pData.price || 0),
+          qty: qty
+        });
+      }
+
+      const totalPagos = (fData.pagosRealizados || []).reduce((acc, p) => acc + p.monto, 0);
+      const totalMoras = (fData.moras || []).reduce((acc, m) => acc + m.monto, 0);
+      const nuevoTotal = productos.reduce((acc, p) => acc + p.price * p.qty, 0) + totalMoras - totalPagos;
+
+      tx.update(facturaRef, {
+        productos,
+        total: nuevoTotal,
+        updatedAt: new Date().toISOString()
+      });
+    });
+
+    await abrirFactura(facturaActual.id);
+    modalProductos.classList.add('hidden');
+  } catch (err) {
+    console.error(err);
+    alert("Error al agregar producto: " + (err.message || err));
   }
 };
 
-function saveFactura(){
-  const facturas = load(LS_INVOICES);
-  const idx = facturas.findIndex(f=>f.id===facturaActual.id);
-  if(idx>=0){ facturas[idx]=facturaActual; save(LS_INVOICES,facturas); }
+/* ====== Buscar en la lista de cuentas ====== */
+if (searchInput) searchInput.addEventListener('input', (e) => {
+  renderPendientesFromDocs(lastSnapshotDocs, e.target.value);
+});
+
+/* ====== Imprimir factura ====== */
+window.imprimirFactura = () => {
+  if (!facturaActual) return alert("Abra una factura antes de imprimir");
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: [220, 600] });
+    let y = 20;
+    doc.setFont("courier", "normal");
+    doc.setFontSize(12);
+    doc.text("Cristo Felix", 110, y, { align: "center" }); y += 16;
+    doc.setFontSize(10);
+    doc.text("San de arroz y aceite y mas", 110, y, { align: "center" }); y += 14;
+    doc.text("Pagos Semanal y Quincenal", 110, y, { align: "center" }); y += 14;
+    doc.text("Tel: 829-444-1880", 110, y, { align: "center" }); y += 20;
+    doc.line(10, y, 210, y); y += 14;
+
+    doc.text(`Factura: ${facturaActual.id}`, 110, y, { align: "center" }); y += 12;
+    doc.text(`Cliente: ${facturaActual.cliente?.name || ''}`, 110, y, { align: "center" }); y += 14;
+
+    (facturaActual.productos || []).forEach(p => {
+      doc.text(`${p.qty} x ${p.name} $${(p.qty * p.price).toFixed(2)}`, 110, y, { align: "center" });
+      y += 12;
+    });
+
+    y += 6; doc.line(10, y, 210, y); y += 14;
+    doc.setFontSize(12);
+    doc.text(`TOTAL: $${Number(facturaActual.total || 0).toFixed(2)}`, 110, y, { align: "center" }); y += 18;
+
+    if (facturaActual.pagosRealizados && facturaActual.pagosRealizados.length > 0) {
+      doc.setFontSize(10);
+      doc.text("PAGOS:", 110, y, { align: "center" }); y += 14;
+      facturaActual.pagosRealizados.forEach((p, i) => {
+        const fechaStr = p.fecha ? ` - ${new Date(p.fecha).toLocaleDateString()} ${new Date(p.fecha).toLocaleTimeString()}` : '';
+        doc.text(`${i + 1}. $${Number(p.monto).toFixed(2)}${fechaStr}`, 110, y, { align: "center" });
+        y += 12;
+      });
+      y += 10;
+    }
+
+    if (facturaActual.moras && facturaActual.moras.length > 0) {
+      doc.setFontSize(10);
+      doc.text("MORAS:", 110, y, { align: "center" }); y += 14;
+      facturaActual.moras.forEach((m, i) => {
+        const fechaStr = m.fecha ? ` - ${new Date(m.fecha).toLocaleDateString()} ${new Date(m.fecha).toLocaleTimeString()}` : '';
+        doc.text(`${i + 1}. $${Number(m.monto).toFixed(2)}${fechaStr}`, 110, y, { align: "center" });
+        y += 12;
+      });
+      y += 10;
+    }
+
+    doc.setFontSize(10);
+    doc.text("Gracias por elegirnos", 110, y, { align: "center" });
+    doc.autoPrint();
+    doc.save(`Factura_${facturaActual.id}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert("Error generando PDF: " + (err.message || err));
+  }
+};
+
+/* ====== Util ====== */
+function escapeHtml(text) {
+  const map = {
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  };
+  return String(text).replace(/[&<>"']/g, m => map[m]);
 }
 
-// Inicializar
-searchInput.addEventListener('input', e=>renderPendientes(e.target.value));
-document.addEventListener('DOMContentLoaded', ()=>renderPendientes());
+/* ====== Iniciar ====== */
+startListeningFacturas();

@@ -5,8 +5,54 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Cuentas por Cobrar</title>
   <link rel="stylesheet" href="facturacion.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    /* --- Estilos para los botones del modal --- */
+    .accionesFactura {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s;
+    }
+
+    .btn:hover {
+      background: #0056b3;
+    }
+
+    .btn.success { background: #28a745; }
+    .btn.success:hover { background: #1e7e34; }
+
+    .btn.danger { background: #dc3545; }
+    .btn.danger:hover { background: #a71d2a; }
+
+    .btn.close { background: #6c757d; }
+    .btn.close:hover { background: #5a6268; }
+
+    @media (max-width: 600px) {
+      .accionesFactura {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .btn {
+        width: 100%;
+        text-align: center;
+      }
+    }
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -30,36 +76,29 @@
     <div class="modal-content">
       <h3>Detalle de Factura</h3>
       <div id="detalleFactura"></div>
-      <button class="btn" id="btnAgregarProducto">Agregar Producto</button>
-      <h4>Pagos</h4>
+
       <ul id="listaPagos"></ul>
-      <button class="btn danger" id="btnEliminarFactura">🗑️ Eliminar Factura</button>
-      <button class="btn close" id="cerrarFactura">Cerrar</button>
+
+      <!-- 🔹 NUEVOS BOTONES -->
+      <div class="accionesFactura">
+        <button class="btn" onclick="abrirModalProductos()">➕ Agregar Producto</button>
+        <button class="btn" onclick="agregarPago()">💵 Agregar Pago</button>
+        <button class="btn" onclick="agregarMora()">⚠️ Agregar Mora</button>
+        <button class="btn success" onclick="facturaSalda()">✅ Factura Salda</button>
+        <button class="btn danger" id="btnEliminarFactura">🗑️ Eliminar</button>
+        <button class="btn" onclick="imprimirFactura()">🖨️ Imprimir</button>
+        <button class="btn close" id="cerrarFactura">❌ Cerrar</button>
+      </div>
     </div>
   </div>
 
-  <!-- Modal productos -->
-  <div id="modalProducts" class="modal hidden">
+  <!-- Modal Productos -->
+  <div id="modalProductos" class="modal hidden">
     <div class="modal-content">
       <h3>Seleccionar Producto</h3>
-      <input type="text" id="searchProduct" placeholder="Buscar producto...">
-      <ul id="listProducts"></ul>
-      <button class="btn close" id="closeProducts">Cerrar</button>
-    </div>
-  </div>
-
-  <!-- Modal opciones al agregar producto -->
-  <div id="modalOpciones" class="modal hidden">
-    <div class="modal-content">
-      <h3>¿Qué hacer con el nuevo producto?</h3>
-      <p id="productoNuevo"></p>
-      <button class="btn success" id="opcionSumar">➕ Sumar al saldo existente</button>
-      <button class="btn" id="opcionNuevaFecha">📅 Crear nueva fecha de pago</button>
-      <div id="calendarBox" class="hidden" style="margin-top:10px;">
-        <h4>Selecciona la nueva fecha de pago:</h4>
-        <input type="text" id="fechaFlatpickr">
-      </div>
-      <button class="btn close" id="cerrarOpciones">Cancelar</button>
+      <input type="text" id="searchProductModal" placeholder="Buscar producto...">
+      <ul id="listProductsModal"></ul>
+      <button class="btn close" id="closeProductsModal">Cerrar</button>
     </div>
   </div>
 
@@ -73,10 +112,9 @@
     <a href="historial.html" class="nav-item"><i data-lucide="archive"></i><span>Historial</span></a>
   </footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script>
     lucide.createIcons();
   </script>
-  <script src="cuentas.js"></script>
+  <script type="module" src="cuentas.js"></script>
 </body>
 </html>

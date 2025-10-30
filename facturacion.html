@@ -6,9 +6,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <title>Facturación</title>
   <link rel="stylesheet" href="facturacion.css" />
-  <!-- Flatpickr (Calendario) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <!-- Iconos -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -39,13 +36,6 @@
         <h2>Forma de Pago</h2>
         <label><input type="radio" name="pago" value="efectivo" checked> Efectivo</label>
         <label><input type="radio" name="pago" value="credito"> Crédito</label>
-
-        <!-- Calendario solo si crédito -->
-        <div id="calendarBox" style="display:none; margin-top:10px;">
-          <p><b>Seleccionar días de pago:</b></p>
-          <input type="text" id="calendarPagos" placeholder="Haz clic para elegir fechas">
-          <ul id="listaPagos"></ul>
-        </div>
 
         <!-- Botones -->
         <div class="row">
@@ -89,6 +79,6 @@
   <script>
     lucide.createIcons();
   </script>
-  <script src="facturacion.js"></script>
+  <script type="module" src="facturacion.js"></script>
 </body>
 </html>

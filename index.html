@@ -1,81 +1,22 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Inicio — Sistema Facturación (Móvil)</title>
-  <link rel="stylesheet" href="index.css" />
-  <!-- Iconos de Lucide -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistemas Oss - Derechos Reservados</title>
+    <link rel="stylesheet" href="animacion.css">
 </head>
 <body>
-  <header class="topbar">
-    <h1> Sistema Facturación - Cristo Félix</h1>
-    <p class="subtitle">Inicio — Sistema Facturación (Móvil)</p>
-  </header>
 
-  <main class="container">
-    <!-- Inventario -->
-    <section class="card">
-      <h2>Inventario</h2>
-      <p>Administra productos: agregar, editar, eliminar y rebajar stock al facturar.</p>
-      <a class="btn" href="inventario.html">Ir a Inventario</a>
-    </section>
+    <div class="animacion-container">
+        <div class="logo">Sistemas<span>Oss</span></div>
+        <p class="slogan">Sistemas - Modernos</p>
+        
+        <div class="loader">
+            <div></div><div></div><div></div><div></div>
+        </div>
+    </div>
 
-    <!-- Clientes -->
-    <section class="card">
-      <h2>Clientes</h2>
-      <p>Gestiona clientes: nombre, teléfono, dirección y ubicación en Google Maps.</p>
-      <a class="btn" href="clientes.html">Ir a Clientes</a>
-    </section>
-
-    <!-- Facturación -->
-    <section class="card">
-      <h2>Facturación</h2>
-      <p>Genera facturas seleccionando productos y clientes. Pago en efectivo o a crédito.</p>
-      <a class="btn" href="facturacion.html">Ir a Facturación</a>
-    </section>
-
-    <!-- Cuentas por Cobrar -->
-    <section class="card">
-      <h2>Cuentas por Cobrar</h2>
-      <p>Consulta facturas a crédito, plazos de pago y seguimiento de moras.</p>
-      <a class="btn" href="cuentas.html">Ir a Cuentas por Cobrar</a>
-    </section>
-
-    <!-- Historial -->
-    <section class="card">
-      <h2>Historial de Facturas</h2>
-      <p>Consulta todas las facturas emitidas, ya sea en efectivo o a crédito.</p>
-      <a class="btn" href="historial.html">Ir al Historial</a>
-    </section>
-
-    <!-- Estadísticas rápidas -->
-    <section class="card small">
-      <h3>Atajos</h3>
-      <ul>
-        <li>Productos totales: <span id="totalProducts">—</span></li>
-        <li>Productos sin stock: <span id="outOfStock">—</span></li>
-        <li>Clientes registrados: <span id="totalClients">—</span></li>
-        <li>Facturas emitidas: <span id="totalInvoices">—</span></li>
-        <li>Pendientes (Cuentas por Cobrar): <span id="pendingInvoices">—</span></li>
-      </ul>
-    </section>
-  </main>
-
-  <!-- Footer de navegación -->
-  <footer class="navbar">
-    <a href="index.html" class="nav-item active"><i data-lucide="home"></i><span>Inicio</span></a>
-    <a href="inventario.html" class="nav-item"><i data-lucide="package"></i><span>Inventario</span></a>
-    <a href="clientes.html" class="nav-item"><i data-lucide="users"></i><span>Clientes</span></a>
-    <a href="facturacion.html" class="nav-item"><i data-lucide="file-text"></i><span>Facturación</span></a>
-    <a href="cuentas.html" class="nav-item"><i data-lucide="credit-card"></i><span>Cuentas</span></a>
-    <a href="historial.html" class="nav-item"><i data-lucide="archive"></i><span>Historial</span></a>
-  </footer>
-
-  <script src="index.js"></script>
-  <script>
-    lucide.createIcons(); // activar iconos
-  </script>
+    <script src="animacion.js"></script>
 </body>
 </html>

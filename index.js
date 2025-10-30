@@ -1,3 +1,4 @@
+
 const LS_PRODUCTS = 'facturacion_products_v1';
 const LS_CLIENTS = 'facturacion_clients_v1';
 const LS_INVOICES = 'facturacion_invoices_v1';

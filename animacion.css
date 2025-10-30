@@ -1,0 +1,79 @@
+/* Estilo general */
+body {
+    margin: 0;
+    background: #0a0a0a;
+    color: white;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+
+/* Contenedor centrado */
+.animacion-container {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/******** LOGO ********/
+.logo {
+    font-size: 3.5rem;
+    font-weight: bold;
+    color: #00aaff;
+    opacity: 0;
+    animation: aparecer 1.5s forwards ease-in-out;
+}
+
+.logo span {
+    color: #ffffff;
+}
+
+/******** SLOGAN ********/
+.slogan {
+    margin-top: 8px;
+    font-size: 1.2rem;
+    opacity: 0;
+    animation: aparecer 2.5s forwards ease-in-out;
+}
+
+@keyframes aparecer {
+    from { opacity: 0; transform: scale(0.6); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/******** Loader estilo Windows ********/
+.loader {
+    display: inline-block;
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin-top: 30px;
+    animation: mostrar 3s ease forwards;
+}
+
+.loader div {
+    position: absolute;
+    width: 13px;
+    height: 13px;
+    background: #00aaff;
+    border-radius: 50%;
+    animation: loaderAnim 1.2s linear infinite;
+}
+
+.loader div:nth-child(1) { top: 8px; left: 8px; }
+.loader div:nth-child(2) { top: 8px; left: 32px; animation-delay: 0.1s; }
+.loader div:nth-child(3) { top: 32px; left: 8px; animation-delay: 0.2s; }
+.loader div:nth-child(4) { top: 32px; left: 32px; animation-delay: 0.3s; }
+
+@keyframes loaderAnim {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.8); opacity: 0.4; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes mostrar {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}

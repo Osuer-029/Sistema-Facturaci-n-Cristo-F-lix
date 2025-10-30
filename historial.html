@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Historial de Facturas</title>
   <link rel="stylesheet" href="facturacion.css">
-  <!-- Iconos de Lucide -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
@@ -37,19 +36,21 @@
     </div>
   </div>
 
-    <!-- Footer de navegación -->
+  <!-- Footer de navegación -->
   <footer class="navbar">
     <a href="index.html" class="nav-item"><i data-lucide="home"></i><span>Inicio</span></a>
     <a href="inventario.html" class="nav-item"><i data-lucide="package"></i><span>Inventario</span></a>
     <a href="clientes.html" class="nav-item"><i data-lucide="users"></i><span>Clientes</span></a>
     <a href="facturacion.html" class="nav-item"><i data-lucide="file-text"></i><span>Facturación</span></a>
     <a href="cuentas.html" class="nav-item"><i data-lucide="credit-card"></i><span>Cuentas</span></a>
-    <a href="historial.html" class="nav-item"><i data-lucide="archive"></i><span>Historial</span></a>
+    <a href="historial.html" class="nav-item active"><i data-lucide="archive"></i><span>Historial</span></a>
   </footer>
 
   <script>
     lucide.createIcons(); // activar iconos en todas las páginas
   </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 
   <script src="historial.js"></script>
